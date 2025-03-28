@@ -82,7 +82,7 @@ public class ModuleStorageAccess {
                         entity.makeInsertTemplate(pool.getSchema()))
                 .mapFrom(entity.getTupleMapper())
                 .execute(entity)
-                .onSuccess(res -> logger.info("Saved " + entity.entityName().toLowerCase()))
+                .onSuccess(res -> logger.info("Created (in storage) " + entity.entityName().toLowerCase()))
                 .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage()))
                 .map(UUID.fromString(entity.asJson().getString("id")));
     }
@@ -91,7 +91,7 @@ public class ModuleStorageAccess {
         return SqlTemplate.forUpdate(pool.getPool(), updateTemplate)
                 .mapFrom(entity.getTupleMapper())
                 .execute(entity)
-                .onSuccess(res -> logger.info("Saved " + entity.entityName().toLowerCase()))
+                .onSuccess(res -> logger.info("Updated (in storage) " + entity.entityName().toLowerCase()))
                 .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage()))
                 .mapEmpty();
 

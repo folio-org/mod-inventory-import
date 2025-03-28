@@ -179,7 +179,7 @@ public class ImportJobLog extends Entity {
                 row.getUUID(dbColumnName(TRANSFORMATION)),
                 row.getUUID(dbColumnName(STORAGE)),
                 row.getString(dbColumnName(STATUS)),
-                (row.getValue(dbColumnName(FINISHED)) != null ? row.getLocalDateTime(dbColumnName(STARTED)).toString() : null),
+                row.getLocalDateTime(dbColumnName(STARTED)).toString(),
                 (row.getValue(dbColumnName(FINISHED)) != null ? row.getLocalDateTime(dbColumnName(FINISHED)).toString() : null),
                 (row.getValue(dbColumnName(AMOUNT_HARVESTED)) != null ? row.getInteger(dbColumnName(AMOUNT_HARVESTED)) : null),
                 row.getString(dbColumnName(MESSAGE)));
@@ -259,7 +259,7 @@ public class ImportJobLog extends Entity {
                 + dbColumnNameAndType(TRANSFORMATION) + ", "
                 + dbColumnNameAndType(STORAGE) + ", "
                 + dbColumnNameAndType(STATUS) + ", "
-                + dbColumnNameAndType(STARTED) + ", "
+                + dbColumnNameAndType(STARTED) + " NOT NULL, "
                 + dbColumnNameAndType(FINISHED) + ", "
                 + dbColumnNameAndType(AMOUNT_HARVESTED) + ", "
                 + dbColumnNameAndType(MESSAGE)
@@ -304,12 +304,8 @@ public class ImportJobLog extends Entity {
                 + ")";
     }
 
-    public void setFinished(LocalDateTime finished, ModuleStorageAccess configStorage) {
-        record = new ImportJobRecord(record.id, record.importConfigId, record.importConfigName, record.importType,
-                record.url, record.allowErrors, record.recordLimit, record.batchSize, record.transformation, record.storage,
-                record.status, record.started,
-                finished.toString(),
-                record.amountHarvested, record.message);
+    public void logFinishTime(LocalDateTime finished, ModuleStorageAccess configStorage) {
+        setFinished(finished);
         configStorage.updateEntity(this,
                 "UPDATE " + configStorage.schema() + "." + table()
                         + " SET " + dbColumnName(FINISHED) + " = "
@@ -317,4 +313,9 @@ public class ImportJobLog extends Entity {
                         + "WHERE id = #{id}");
     }
 
+    private void setFinished(LocalDateTime finished) {
+        record = new ImportJobRecord(record.id, record.importConfigId, record.importConfigName, record.importType,
+                record.url, record.allowErrors, record.recordLimit, record.batchSize, record.transformation, record.storage,
+                record.status, record.started, finished.toString(), record.amountHarvested, record.message);
+    }
 }
