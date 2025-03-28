@@ -55,7 +55,7 @@ public class ImportJob {
     }
 
     public void setFinishedDateTime() {
-        importJobLog.setFinished(SettableClock.getLocalDateTime(), configStorage);
+        importJobLog.logFinishTime(SettableClock.getLocalDateTime(), configStorage);
     }
 
     Future<Void> processFile(File xmlFile) {
@@ -106,8 +106,7 @@ public class ImportJob {
                     transformationPipeline = pipelineBuild.result();
                     transformationPipeline.setTarget(updater);
                     promise.complete(pipelineBuild.result());
-                })
-                .onFailure(e -> Future.failedFuture(e.getMessage()));
+                });
         return promise.future();
     }
 

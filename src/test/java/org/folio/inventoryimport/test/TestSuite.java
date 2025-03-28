@@ -233,6 +233,7 @@ public class TestSuite {
                 .put("id", IMPORT_JOB_ID)
                 .put("importConfigName", IMPORT_CONFIG_NAME)
                 .put("importConfigId", IMPORT_CONFIG_ID)
+                .put("started", "2024-01-01T01:01:01")
                 .put("amountHarvested", 0);
         postJsonObject(PATH_IMPORT_JOBS, importJob);
         getRecords(PATH_IMPORT_JOBS)
@@ -262,6 +263,7 @@ public class TestSuite {
                 .put("id", IMPORT_JOB_ID)
                 .put("importConfigName", IMPORT_CONFIG_NAME)
                 .put("importConfigId", IMPORT_CONFIG_ID)
+                .put("started", "2024-01-01T01:01:01")
                 .put("amountHarvested", 0);
         postJsonObject(PATH_IMPORT_JOBS, importJob);
 
@@ -281,7 +283,6 @@ public class TestSuite {
 
         getRecords(PATH_IMPORT_JOBS + "/" + IMPORT_JOB_ID + "/log")
                 .body("totalRecords", is(2));
-
     }
 
     @Test
@@ -299,14 +300,13 @@ public class TestSuite {
                 .put("transformationId", TRANSFORMATION_ID);
         postJsonObject(PATH_IMPORT_CONFIGS, importConfig);
 
-        ValidatableResponse resp = getRecordById(PATH_IMPORT_CONFIGS, IMPORT_CONFIG_ID);
-        System.out.println(resp.extract().response().asPrettyString());
-        ValidatableResponse resp2 = getRecordById(PATH_TRANSFORMATIONS, TRANSFORMATION_ID);
-        System.out.println(resp2.extract().response().asPrettyString());
-
-        postXml(BASE_PATH_IMPORT_XML_FILE + "/" + IMPORT_CONFIG_ID + "/import", Samples.INVENTORY_RECORD_SET_XML);
-
+        getRecordById(PATH_IMPORT_CONFIGS, IMPORT_CONFIG_ID);
+        getRecordById(PATH_TRANSFORMATIONS, TRANSFORMATION_ID);
+        postSourceXml(BASE_PATH_IMPORT_XML_FILE + "/" + IMPORT_CONFIG_ID + "/import", Samples.INVENTORY_RECORD_SET_XML);
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
+        String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + IMPORT_JOB_ID + "/log"), is(4));
     }
 
@@ -827,8 +827,7 @@ public class TestSuite {
                 .statusCode(201);
     }
 
-    ValidatableResponse postXml(String api, String xmlContent) {
-        System.out.println("Post to " + api);
+    ValidatableResponse postSourceXml(String api, String xmlContent) {
         return given()
                 .baseUri(BASE_URI_INVENTORY_IMPORT)
                 .header(OKAPI_TENANT)
