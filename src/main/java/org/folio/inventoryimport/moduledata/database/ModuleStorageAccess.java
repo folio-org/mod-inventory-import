@@ -60,18 +60,27 @@ public class ModuleStorageAccess {
 
     public Future<String> getScript(RoutingContext routingContext) {
         String id = routingContext.request().getParam("id");
-        return getScript(UUID.fromString(id));
+        Promise<String> promise = Promise.promise();
+        getEntityById(UUID.fromString(id), new Step()).onComplete(step -> {
+            if (step.result() != null) {
+                promise.complete(((Step)step.result()).getLineSeparatedXslt());
+            } else {
+                promise.fail("Did not find step with ID " + id + " to GET script from");
+            }
+        });
+        return promise.future();
     }
 
-    public Future<String> getScript(UUID stepId) {
-        Promise<String> promise = Promise.promise();
-        getEntityById(stepId, new Step()).onComplete(step -> {
-            if (step.result() != null) {
-                String script = ((Step)step.result()).record.script();
-                script = script.replaceAll("\\r[\\n]?", System.lineSeparator());
-                promise.complete(script);
+    public Future<Void> putScript(RoutingContext routingContext) {
+        String id = routingContext.request().getParam("id");
+        String script = routingContext.body().asString();
+        Promise<Void> promise = Promise.promise();
+        getEntityById(UUID.fromString(id), new Step()).onComplete(getStep -> {
+            if (getStep.result() != null) {
+                Step step = (Step) getStep.result();
+                step.updateScript(script, this).onSuccess(ignore->promise.complete());
             } else {
-                promise.fail("Did not find step with ID " + stepId + " to GET script from");
+                promise.fail("Did not find step with ID " + id + " to GET script from");
             }
         });
         return promise.future();
@@ -82,7 +91,7 @@ public class ModuleStorageAccess {
                         entity.makeInsertTemplate(pool.getSchema()))
                 .mapFrom(entity.getTupleMapper())
                 .execute(entity)
-                .onSuccess(res -> logger.info("Created (in storage) " + entity.entityName().toLowerCase()))
+                .onSuccess(res -> logger.info("Created " + entity.entityName().toLowerCase() + "."))
                 .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage()))
                 .map(UUID.fromString(entity.asJson().getString("id")));
     }
@@ -91,7 +100,7 @@ public class ModuleStorageAccess {
         return SqlTemplate.forUpdate(pool.getPool(), updateTemplate)
                 .mapFrom(entity.getTupleMapper())
                 .execute(entity)
-                .onSuccess(res -> logger.info("Updated (in storage) " + entity.entityName().toLowerCase()))
+                .onSuccess(res -> logger.info("Updated " + entity.entityName().toLowerCase() + "."))
                 .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage()))
                 .mapEmpty();
 
@@ -134,23 +143,6 @@ public class ModuleStorageAccess {
                     RowIterator<Entity> iterator = rows.iterator();
                     return iterator.hasNext() ? iterator.next() : null;
                 });
-    }
-
-    /**
-     * New version of previous jobs.
-     * @param query Select statement
-     * @return List of processed import jobs
-     */
-    public Future<List<ImportJobLog>> getImportJobs(String query) {
-        List<ImportJobLog> importJobLogs = new ArrayList<>();
-        return SqlTemplate.forQuery(pool.getPool(), query)
-                .mapTo(new ImportJobLog().getRowMapper())
-                .execute(null)
-                .onSuccess(rows -> {
-                    for (Entity entity : rows) {
-                        importJobLogs.add((ImportJobLog) entity);
-                    }
-                }).map(importJobLogs);
     }
 
     /**

@@ -2,6 +2,20 @@ package org.folio.inventoryimport.test.sampleData;
 
 public class Samples {
 
+  public static final String COPY_XML_DOC_XSLT = "<xsl:stylesheet version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\">\n" +
+          "    <xsl:template match=\"@*|node()\">\n" +
+          "        <xsl:copy>\n" +
+          "            <xsl:apply-templates select=\"@*|node()\"/>\n" +
+          "        </xsl:copy>\n" +
+          "    </xsl:template>\n" +
+          "</xsl:stylesheet>\n";
+
+  public static final String EMPTY_XSLT = "<xsl:stylesheet version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\">\n" +
+          "</xsl:stylesheet>\n";
+
+  public static final String INVALID_XSLT = "<xsl:stylesheet version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\">\n";
+
+
   public static final String INVENTORY_RECORD_SET_XML = "<collection>\n" +
           "   <record>\n" +
           "      <processing>\n" +

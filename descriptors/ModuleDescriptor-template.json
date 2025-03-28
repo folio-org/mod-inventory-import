@@ -92,6 +92,11 @@
           "pathPattern": "/inventory-import/steps/{id}/script",
           "permissionsRequired": []
         }, {
+          "methods": ["PUT"],
+          "pathPattern": "/inventory-import/steps/{id}/script",
+          "permissionsRequired": []
+        },
+        {
           "methods": ["POST"],
           "pathPattern": "/inventory-import/transformations",
           "permissionsRequired": []
