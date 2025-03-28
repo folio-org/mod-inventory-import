@@ -36,6 +36,7 @@ import java.util.UUID;
 import static io.restassured.RestAssured.given;
 import static org.awaitility.Awaitility.await;
 import static org.folio.inventoryimport.test.Statics.*;
+import static org.folio.inventoryimport.test.sampleData.Samples.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
@@ -47,7 +48,6 @@ public class TestSuite {
 
     private static FakeFolioApis fakeFolioApis;
     static final String TENANT = "import_test";
-    public static final Header CONTENT_TYPE_JSON = new Header("Content-Type", "application/json");
     public static final Header OKAPI_TENANT = new Header(XOkapiHeaders.TENANT, TENANT);
     public static final Header OKAPI_URL = new Header(XOkapiHeaders.URL, BASE_URI_OKAPI);
     public static final Header OKAPI_TOKEN = new Header(XOkapiHeaders.TOKEN, "eyJhbGciOiJIUzUxMiJ9eyJzdWIiOiJhZG1pbiIsInVzZXJfaWQiOiI3OWZmMmE4Yi1kOWMzLTViMzktYWQ0YS0wYTg0MDI1YWIwODUiLCJ0ZW5hbnQiOiJ0ZXN0X3RlbmFudCJ9BShwfHcNClt5ZXJ8ImQTMQtAM1sQEnhsfWNmXGsYVDpuaDN3RVQ9");
@@ -159,14 +159,69 @@ public class TestSuite {
     }
 
     @Test
-    public void canPostAndGetStep() {
+    public void canPostAndGetStepAndGetXslt() {
         JsonObject step = new JsonObject();
         step.put("id", STEP_ID)
                 .put("name", "test step")
-                .put("enabled", true);
+                .put("enabled", true)
+                .put("script", COPY_XML_DOC_XSLT);
 
         postJsonObject(PATH_STEPS, step);
-        getRecordById(PATH_STEPS, STEP_ID);
+        getRecordById(PATH_STEPS, STEP_ID).extract().response().getBody().prettyPrint();
+        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(COPY_XML_DOC_XSLT));
+    }
+
+    @Test
+    public void cannotPostStepWithInvalidXslt() {
+        JsonObject step = new JsonObject();
+        step.put("id", STEP_ID)
+                .put("name", "test step")
+                .put("enabled", true)
+                .put("script", INVALID_XSLT);
+
+        given()
+                .baseUri(BASE_URI_INVENTORY_IMPORT)
+                .header(OKAPI_TENANT)
+                .header(OKAPI_URL)
+                .body(step.encodePrettily())
+                .header(CONTENT_TYPE_JSON)
+                .post(PATH_STEPS)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    public void canUpdateTheXsltOfAStep() {
+        JsonObject step = new JsonObject();
+        step.put("id", STEP_ID)
+                .put("name", "test step")
+                .put("enabled", true)
+                .put("script", EMPTY_XSLT);
+        postJsonObject(PATH_STEPS, step);
+        getRecordById(PATH_STEPS, STEP_ID).extract().response().getBody().prettyPrint();
+        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(EMPTY_XSLT));
+        putXml(PATH_STEPS + "/" + STEP_ID + "/script", COPY_XML_DOC_XSLT);
+        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(COPY_XML_DOC_XSLT));
+    }
+
+    @Test
+    public void cannotUpdateStepWithInvalidXslt() {
+        JsonObject step = new JsonObject();
+        step.put("id", STEP_ID)
+                .put("name", "test step")
+                .put("enabled", true)
+                .put("script", EMPTY_XSLT);
+
+        given()
+                .baseUri(BASE_URI_INVENTORY_IMPORT)
+                .header(OKAPI_TENANT)
+                .header(OKAPI_URL)
+                .body(INVALID_XSLT)
+                .header(CONTENT_TYPE_XML)
+                .put(PATH_STEPS + "/" + STEP_ID + "/script")
+                .then()
+                .statusCode(400);
+
     }
 
     @Test
@@ -174,7 +229,8 @@ public class TestSuite {
         JsonObject step = new JsonObject();
         step.put("id", STEP_ID)
                 .put("name", "test step")
-                .put("enabled", true);
+                .put("enabled", true)
+                .put("script", COPY_XML_DOC_XSLT);
         postJsonObject(PATH_STEPS, step);
 
         JsonObject transformation = new JsonObject();
@@ -291,6 +347,20 @@ public class TestSuite {
         transformation.put("id", TRANSFORMATION_ID)
                 .put("name", "testTransformation");
         postJsonObject(PATH_TRANSFORMATIONS, transformation);
+
+        JsonObject step = new JsonObject();
+        step.put("id", STEP_ID)
+                .put("name", "test step")
+                .put("enabled", true)
+                .put("script", COPY_XML_DOC_XSLT);
+        postJsonObject(PATH_STEPS, step);
+
+        JsonObject tsa = new JsonObject();
+        tsa.put("stepId", STEP_ID)
+                .put("transformationId", TRANSFORMATION_ID)
+                .put("position", "1");
+        postJsonObject(PATH_TSAS, tsa);
+
         JsonObject importConfig = new JsonObject();
         importConfig
                 .put("id", IMPORT_CONFIG_ID)
@@ -825,6 +895,19 @@ public class TestSuite {
                 .post(api)
                 .then()
                 .statusCode(201);
+    }
+
+    ValidatableResponse putXml (String api, String body) {
+        return given()
+                .baseUri(BASE_URI_INVENTORY_IMPORT)
+                .header(OKAPI_TENANT)
+                .header(OKAPI_URL)
+                .body(body)
+                .header(Statics.CONTENT_TYPE_XML)
+                .put(api)
+                .then()
+                .statusCode(204);
+
     }
 
     ValidatableResponse postSourceXml(String api, String xmlContent) {

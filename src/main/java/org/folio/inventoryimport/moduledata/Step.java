@@ -1,8 +1,10 @@
 package org.folio.inventoryimport.moduledata;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.TupleMapper;
+import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
 import org.folio.inventoryimport.moduledata.database.Tables;
 import org.xml.sax.SAXException;
 
@@ -60,8 +62,8 @@ public class Step extends Entity {
         return "Step";
     }
 
-    public String getScript() {
-        return record.script;
+    public String getLineSeparatedXslt() {
+        return record.script.replaceAll("\\r[\\n]?", System.lineSeparator());
     }
 
     @Override
@@ -138,19 +140,34 @@ public class Step extends Entity {
                 });
     }
 
-    /**
-     * Checks for valid XML.
-     */
-    public static String validateScriptAsXml(String script) {
+    public String validateScriptAsXml() {
+        return validateScriptAsXml(getLineSeparatedXslt());
+    }
+
+    public static String validateScriptAsXml(String xslt) {
         try {
             DocumentBuilderFactory builder = DocumentBuilderFactory.newInstance();
             builder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             DocumentBuilder parser = builder.newDocumentBuilder();
-            parser.parse(new ByteArrayInputStream(script.getBytes(StandardCharsets.UTF_8)));
+            parser.parse(new ByteArrayInputStream(xslt.replaceAll("\\r[\\n]?", System.lineSeparator()).getBytes(StandardCharsets.UTF_8)));
         } catch (ParserConfigurationException | IOException | SAXException pe) {
-            return "Validation failed for script [ " + script + "]: " + pe.getMessage();
+            return "Could not parse [ " + xslt + "] as XML: " + pe.getMessage();
         }
         return "OK";
+    }
+
+    private void setScript(String xslt) {
+        record = new Step.StepRecord(record.id, record.name, record.enabled, record.description, record.type, record.inputFormat,
+                record.outputFormat, xslt);
+    }
+
+    public Future<Void> updateScript(String xslt, ModuleStorageAccess storage) {
+        setScript(xslt);
+        System.out.println(getLineSeparatedXslt());
+        return storage.updateEntity(this,
+                "UPDATE " + storage.schema() + "." + table()
+                        + " SET " + dbColumnName(SCRIPT) + " = '" + xslt.replaceAll(System.lineSeparator(), "\n")+"'"
+                        + "WHERE id = #{id}");
     }
 
 }

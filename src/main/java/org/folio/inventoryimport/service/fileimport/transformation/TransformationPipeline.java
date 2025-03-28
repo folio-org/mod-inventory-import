@@ -92,10 +92,11 @@ public class TransformationPipeline implements RecordReceiver {
     private void setTemplates(JsonObject transformation) {
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
         for (Object o : transformation.getJsonArray("stepAssociations")) {
-            JsonObject step = ((JsonObject) o).getJsonObject("step");
+            JsonObject stepJson = ((JsonObject) o).getJsonObject("step");
+            Step step = new Step().fromJson(stepJson);
             try {
-                if (step.getString("entityType").equals("xmlTransformationStep")) {
-                    String script = step.getString("script").replaceAll("\\r[\\n]?", System.lineSeparator());
+                if (stepJson.getString("entityType").equals("xmlTransformationStep")) {
+                    String script = step.getLineSeparatedXslt();
                     Source xslt = new StreamSource(new StringReader(script));
                     listOfTemplates.add(transformerFactory.newTemplates(xslt));
                 }

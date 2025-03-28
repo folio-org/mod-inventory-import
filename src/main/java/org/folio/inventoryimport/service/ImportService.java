@@ -86,6 +86,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         handler(vertx, routerBuilder, "getSteps", this::getSteps);
         handler(vertx, routerBuilder, "getStep", this::getStepById);
         handler(vertx, routerBuilder, "getScript", this::getScript);
+        handler(vertx, routerBuilder, "putScript", this::putScript);
         handler(vertx, routerBuilder, "getTsas", this::getTransformationSteps);
         handler(vertx, routerBuilder, "getTsa", this::getTransformationStepById);
         handler(vertx, routerBuilder, "postTsa", this::postTransformationStep);
@@ -234,14 +235,14 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         } catch (Exception e) {
             return Future.failedFuture(e.getMessage());
         }
-        return moduleStorage.getImportJobs(query.getQueryWithLimits()).onComplete(
+        return moduleStorage.getEntities(query.getQueryWithLimits(), new ImportJobLog()).onComplete(
                 jobsList -> {
                     if (jobsList.succeeded()) {
                         JsonObject responseJson = new JsonObject();
                         JsonArray importJobs = new JsonArray();
                         responseJson.put("importJobs", importJobs);
-                        List<ImportJobLog> jobs = jobsList.result();
-                        for (ImportJobLog job : jobs) {
+                        List<Entity> jobs = jobsList.result();
+                        for (Entity job : jobs) {
                             importJobs.add(job.asJson());
                         }
                         moduleStorage.getCount(query.getCountingSql()).onComplete(
@@ -317,10 +318,15 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     private Future<Void> postStep(Vertx vertx, RoutingContext routingContext) {
         String tenant = TenantUtil.tenant(routingContext);
         Step step = new Step().fromJson(routingContext.body().asJsonObject());
-        return new ModuleStorageAccess(vertx, tenant).storeEntity(step)
-                .onSuccess(stepId ->
-                        responseJson(routingContext, 201).end(step.asJson().encodePrettily()))
-                .mapEmpty();
+        String validationResponse = step.validateScriptAsXml();
+        if (validationResponse.equals("OK")) {
+            return new ModuleStorageAccess(vertx, tenant).storeEntity(step)
+                    .onSuccess(stepId ->
+                            responseJson(routingContext, 201).end(step.asJson().encodePrettily()))
+                    .mapEmpty();
+        }  else {
+            return Future.failedFuture(validationResponse);
+        }
     }
 
     private Future<Void> getSteps(Vertx vertx, RoutingContext routingContext) {
@@ -336,6 +342,18 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         return new ModuleStorageAccess(vertx, tenant).getScript(routingContext)
                 .onSuccess(script -> responseText(routingContext, 200).end(script))
                 .mapEmpty();
+    }
+
+    private Future<Void> putScript(Vertx vertx, RoutingContext routingContext) {
+        String tenant = TenantUtil.tenant(routingContext);
+        String validationResponse = Step.validateScriptAsXml(routingContext.body().asString());
+        if (validationResponse.equals("OK")) {
+            return new ModuleStorageAccess(vertx, tenant).putScript(routingContext)
+                    .onSuccess(script -> responseText(routingContext, 204).end())
+                    .mapEmpty();
+        } else {
+            return Future.failedFuture(validationResponse);
+        }
     }
 
     private Future<Void> postTransformation(Vertx vertx, RoutingContext routingContext) {
