@@ -65,7 +65,7 @@ public class ModuleStorageAccess {
             if (step.result() != null) {
                 promise.complete(((Step)step.result()).getLineSeparatedXslt());
             } else {
-                promise.fail("Did not find step with ID " + id + " to GET script from");
+                promise.fail("Could not find step with ID " + id + " to GET script from");
             }
         });
         return promise.future();
@@ -80,7 +80,7 @@ public class ModuleStorageAccess {
                 Step step = (Step) getStep.result();
                 step.updateScript(script, this).onSuccess(ignore->promise.complete());
             } else {
-                promise.fail("Did not find step with ID " + id + " to GET script from");
+                promise.fail("Could not find step with ID " + id + " to GET script from");
             }
         });
         return promise.future();
