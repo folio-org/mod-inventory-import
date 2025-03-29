@@ -182,7 +182,7 @@ public abstract class Entity {
         }
         return clause;
     }
-    // short hands for field properties
+
     public Field field(String fieldCode) {
         return fields().get(fieldCode);
     }

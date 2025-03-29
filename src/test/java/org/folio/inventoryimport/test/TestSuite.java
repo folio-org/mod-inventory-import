@@ -82,7 +82,7 @@ public class TestSuite {
         vertx.deployVerticle(new MainVerticle(), deploymentOptions)
                 .onComplete(context.asyncAssertSuccess(x ->
                         fakeFolioApis = new FakeFolioApis(vertx, context)));
-
+        vertx.fileSystem().deleteRecursive(FileQueue.SOURCE_FILES_ROOT_DIR,true);
     }
 
     @AfterClass
@@ -104,7 +104,6 @@ public class TestSuite {
                 .put("purge", true), null);
         fakeFolioApis.configurationStorage.wipeMockRecords();
         fakeFolioApis.settingsStorage.wipeMockRecords();
-        vertx.fileSystem().deleteRecursive(FileQueue.SOURCE_FILES_ROOT_DIR,true);
     }
 
     void tenantOp(String tenant, JsonObject tenantAttributes, String expectedError) {
@@ -156,6 +155,7 @@ public class TestSuite {
 
         postJsonObject(PATH_TRANSFORMATIONS, transformation);
         getRecordById(PATH_TRANSFORMATIONS, TRANSFORMATION_ID);
+        assertThat(getRecords(PATH_TRANSFORMATIONS).extract().path("totalRecords"), is(1));
     }
 
     @Test
@@ -168,6 +168,7 @@ public class TestSuite {
 
         postJsonObject(PATH_STEPS, step);
         getRecordById(PATH_STEPS, STEP_ID).extract().response().getBody().prettyPrint();
+        assertThat(getRecords(PATH_STEPS).extract().path("totalRecords"), is(1));
         await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(COPY_XML_DOC_XSLT));
     }
 
@@ -221,8 +222,33 @@ public class TestSuite {
                 .put(PATH_STEPS + "/" + STEP_ID + "/script")
                 .then()
                 .statusCode(400);
-
     }
+
+    @Test
+    public void cannotUpdateXsltOfNonExistingStep() {
+        given()
+                .baseUri(BASE_URI_INVENTORY_IMPORT)
+                .header(OKAPI_TENANT)
+                .header(OKAPI_URL)
+                .body(EMPTY_XSLT)
+                .header(CONTENT_TYPE_XML)
+                .put(PATH_STEPS + "/" + STEP_ID + "/script")
+                .then()
+                .statusCode(404);
+    }
+
+    @Test
+    public void cannotGetTheXsltOfNonExistingStep() {
+        given()
+                .baseUri(BASE_URI_INVENTORY_IMPORT)
+                .header(OKAPI_TENANT)
+                .header(OKAPI_URL)
+                .header(CONTENT_TYPE_XML)
+                .get(PATH_STEPS + "/" + STEP_ID + "/script")
+                .then()
+                .statusCode(404);
+    }
+
 
     @Test
     public void canInsertStepIntoPipeline () {
