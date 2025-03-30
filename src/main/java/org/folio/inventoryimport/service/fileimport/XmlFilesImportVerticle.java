@@ -15,17 +15,17 @@ public class XmlFilesImportVerticle extends AbstractVerticle {
 
     private final static ConcurrentMap<String, ConcurrentMap<String, String>> fileImportVerticles = new ConcurrentHashMap<>();
     private final String tenant;
-    private final UUID jobConfigId;
+    private final UUID importConfigurationId;
     private ImportJob importJob;
     private final RoutingContext routingContext;
     final FileQueue fileQueue;
     public static final Logger logger = LogManager.getLogger("queued-files-processing");
 
-    public XmlFilesImportVerticle(String tenant, String jobConfigId, Vertx vertx, RoutingContext routingContext) {
+    public XmlFilesImportVerticle(String tenant, String importConfigurationId, Vertx vertx, RoutingContext routingContext) {
         this.tenant = tenant;
-        this.jobConfigId = UUID.fromString(jobConfigId);
+        this.importConfigurationId = UUID.fromString(importConfigurationId);
         this.routingContext = routingContext;
-        this.fileQueue = new FileQueue(vertx, tenant, jobConfigId);
+        this.fileQueue = new FileQueue(vertx, tenant, importConfigurationId);
     }
 
     public static void launchVerticle(String tenant, String importConfigurationId, RoutingContext routingContext) {
@@ -44,6 +44,7 @@ public class XmlFilesImportVerticle extends AbstractVerticle {
                             logger.error("Couldn't start file processor threads for tenant " + tenant + " and import configuration ID " + importConfigurationId);
                         }
                     });
+
         } else {
             logger.info("Continuing with already existing verticle for tenant " + tenant + " and import configuration ID " + importConfigurationId);
         }
@@ -51,7 +52,7 @@ public class XmlFilesImportVerticle extends AbstractVerticle {
 
     @Override
     public void start() {
-        logger.info("Starting file processor for tenant " + tenant + " and job configuration ID " + jobConfigId);
+        logger.info("Starting file processor for tenant " + tenant + " and job configuration ID " + importConfigurationId);
         vertx.setPeriodic(200, (r) -> {
             File currentFile = getNextFileIfPossible();
             if (currentFile != null) {  // null if queue is empty or a previous file is still processing
@@ -75,7 +76,7 @@ public class XmlFilesImportVerticle extends AbstractVerticle {
 
     public Future<ImportJob> getJob (boolean activating) {
         if (activating) {
-            return ImportJob.instantiateJob(tenant, jobConfigId, fileQueue, vertx, routingContext)
+            return ImportJob.instantiateJob(tenant, importConfigurationId, fileQueue, vertx, routingContext)
                     .compose(job -> {
                         importJob = job;
                         return Future.succeededFuture(importJob);

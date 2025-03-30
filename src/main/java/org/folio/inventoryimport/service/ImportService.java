@@ -398,15 +398,10 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         String fileName = routingContext.queryParam("filename").stream().findFirst().orElse(UUID.randomUUID() + ".xml");
         Buffer xmlContent = Buffer.buffer(routingContext.body().asString());
 
-        return new ModuleStorageAccess(vertx, tenant).getEntityById(UUID.fromString(importConfigId), new ImportConfig())
-                .onSuccess(cfg -> {
-                    if (cfg != null) {
-                        new FileQueue(vertx, tenant, importConfigId).addNewFile(fileName, xmlContent);
-                        XmlFilesImportVerticle.launchVerticle(tenant, importConfigId, routingContext);
-                        responseText(routingContext, 200).end("File queued for processing in ms " + (System.currentTimeMillis() - fileStartTime));
-                    } else {
-                        responseError(routingContext, 404, "Error: No import config with id [" + importConfigId + "] found.");
-                    }
+        return launchImportVerticle(vertx, routingContext)
+                .onSuccess(ignore -> {
+                    new FileQueue(vertx, tenant, importConfigId).addNewFile(fileName, xmlContent);
+                    responseText(routingContext, 200).end("File queued for processing in ms " + (System.currentTimeMillis() - fileStartTime));
                 }).mapEmpty();
     }
 
@@ -417,7 +412,6 @@ public class ImportService implements RouterCreator, TenantInitHooks {
                 .onSuccess(cfg -> {
                     if (cfg != null) {
                         XmlFilesImportVerticle.launchVerticle(tenant, importConfigId, routingContext);
-                        responseText(routingContext, 200).end("Importing enabled for import configuration  [" + importConfigId + "]" );
                     } else {
                         responseError(routingContext, 404, "Error: No import config with id [" + importConfigId + "] found.");
                     }
