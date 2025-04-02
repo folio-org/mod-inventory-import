@@ -1,6 +1,7 @@
 package org.folio.inventoryimport.service;
 
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
@@ -23,7 +24,6 @@ import org.folio.inventoryimport.service.fileimport.FileQueue;
 import org.folio.inventoryimport.service.fileimport.XmlFilesImportVerticle;
 import org.folio.inventoryimport.utils.Miscellaneous;
 import org.folio.inventoryimport.utils.SettableClock;
-import org.folio.okapi.common.HttpResponse;
 import org.folio.tlib.RouterCreator;
 import org.folio.tlib.TenantInitHooks;
 import org.folio.tlib.postgres.PgCqlException;
@@ -56,23 +56,6 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         });
     }
 
-    private void handler(Vertx vertx, RouterBuilder routerBuilder, String operation,
-                         BiFunction<Vertx, RoutingContext, Future<Void>> method) {
-
-        routerBuilder
-                .operation(operation)
-                .handler(ctx -> {
-                    try {
-                        method.apply(vertx, ctx)
-                                .onFailure(cause -> exceptionResponse(cause, ctx));
-                    } catch (Exception e) {  // exception thrown by method
-                        logger.error("{}: {}", operation, e.getMessage(), e);
-                        exceptionResponse(e, ctx);
-                    }
-                })
-                .failureHandler(this::routerExceptionResponse);  // OpenAPI validation exception
-    }
-
     private void handlers(Vertx vertx, RouterBuilder routerBuilder) {
 
         // Configurations tables
@@ -100,14 +83,15 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         handler(vertx, routerBuilder, "purgeAgedLogs", this::purgeAgedLogs);
         // Process
         handler(vertx, routerBuilder,"importXmlRecords", this::stageXmlSourceFile);
-        handler(vertx, routerBuilder,"launchImportVerticle", this::launchImportVerticle);
+        handler(vertx, routerBuilder,"startImportVerticle", this::ensureRunningImportVerticle);
+        handler(vertx, routerBuilder, "stopImportVerticle", this::ensureStoppedImportVerticle);
     }
 
     private void exceptionResponse(Throwable cause, RoutingContext routingContext) {
         if (cause.getMessage().toLowerCase().contains("could not find")) {
-            HttpResponse.responseError(routingContext, 404, cause.getMessage());
+            responseError(routingContext, 404, cause.getMessage());
         } else {
-            HttpResponse.responseError(routingContext, 400, cause.getClass().getSimpleName() + ": " + cause.getMessage());
+            responseError(routingContext, 400, cause.getClass().getSimpleName() + ": " + cause.getMessage());
         }
     }
 
@@ -118,7 +102,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     private void routerExceptionResponse(RoutingContext ctx) {
         String message = null;
         if (ctx.failure() != null) message = ctx.failure().getMessage();
-        HttpResponse.responseError(ctx, ctx.statusCode(), message);
+        responseError(ctx, ctx.statusCode(), message);
     }
 
     @Override
@@ -398,24 +382,58 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         String fileName = routingContext.queryParam("filename").stream().findFirst().orElse(UUID.randomUUID() + ".xml");
         Buffer xmlContent = Buffer.buffer(routingContext.body().asString());
 
-        return launchImportVerticle(vertx, routingContext)
+        return ensureRunningImportVerticle(vertx, tenant, importConfigId, routingContext)
                 .onSuccess(ignore -> {
                     new FileQueue(vertx, tenant, importConfigId).addNewFile(fileName, xmlContent);
                     responseText(routingContext, 200).end("File queued for processing in ms " + (System.currentTimeMillis() - fileStartTime));
                 }).mapEmpty();
     }
 
-    private Future<Void> launchImportVerticle(Vertx vertx, RoutingContext routingContext) {
+    private Future<Void> ensureRunningImportVerticle(Vertx vertx, RoutingContext routingContext) {
         String tenant = TenantUtil.tenant(routingContext);
         String importConfigId = routingContext.pathParam("id");
-        return new ModuleStorageAccess(vertx, tenant).getEntityById(UUID.fromString(importConfigId), new ImportConfig())
+        return ensureRunningImportVerticle(vertx, tenant, importConfigId, routingContext)
+                .onSuccess(response -> responseText(routingContext, 200).end(response)).mapEmpty();
+    }
+
+    private Future<String> ensureRunningImportVerticle(Vertx vertx, String tenant, String importConfigId, RoutingContext routingContext) {
+        Promise<String> promise = Promise.promise();
+        new ModuleStorageAccess(vertx, tenant).getEntityById(UUID.fromString(importConfigId), new ImportConfig())
                 .onSuccess(cfg -> {
                     if (cfg != null) {
-                        XmlFilesImportVerticle.launchVerticle(tenant, importConfigId, routingContext);
+                        XmlFilesImportVerticle
+                                .deployIfUndeployed(vertx, tenant, importConfigId, routingContext)
+                                .onSuccess(promise::complete);
                     } else {
-                        responseError(routingContext, 404, "Error: No import config with id [" + importConfigId + "] found.");
+                        promise.fail("Could not find import config with id [" + importConfigId + "] found.");
                     }
                 }).mapEmpty();
+        return promise.future();
     }
+
+    private Future<Void> ensureStoppedImportVerticle(Vertx vertx, RoutingContext routingContext) {
+        String tenant = TenantUtil.tenant(routingContext);
+        String importConfigId = routingContext.pathParam("id");
+        return XmlFilesImportVerticle.undeployIfDeployed(vertx, tenant, importConfigId)
+                .onSuccess(outcome -> responseText(routingContext, 200).end(outcome))
+                .mapEmpty();
+    }
+
+    private void handler(Vertx vertx, RouterBuilder routerBuilder, String operation,
+                         BiFunction<Vertx, RoutingContext, Future<Void>> method) {
+        routerBuilder
+                .operation(operation)
+                .handler(ctx -> {
+                    try {
+                        method.apply(vertx, ctx)
+                                .onFailure(cause -> exceptionResponse(cause, ctx));
+                    } catch (Exception e) {  // exception thrown by method
+                        logger.error("{}: {}", operation, e.getMessage(), e);
+                        exceptionResponse(e, ctx);
+                    }
+                })
+                .failureHandler(this::routerExceptionResponse);  // OpenAPI validation exception
+    }
+
 
 }
