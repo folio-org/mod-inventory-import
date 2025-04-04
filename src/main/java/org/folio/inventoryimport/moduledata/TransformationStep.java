@@ -101,7 +101,7 @@ public class TransformationStep extends Entity {
 
     @Override
     public Future<Void> createDatabase(TenantPgPool pool) {
-        return executeSqlStatement(pool,
+        return executeSqlStatements(pool,
 
                 "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
                 + " ("
@@ -111,9 +111,9 @@ public class TransformationStep extends Entity {
                 + dbColumnName(STEP_ID) + " UUID NOT NULL "
                 + " REFERENCES " + pool.getSchema() + "." + Tables.step + "(" + new Step().dbColumnName(Step.ID) + "), "
                 + dbColumnName(POSITION) + " INTEGER NOT NULL "
-                + ") ")
+                + ") "
 
-                .mapEmpty();
+        ).mapEmpty();
     }
 
 }

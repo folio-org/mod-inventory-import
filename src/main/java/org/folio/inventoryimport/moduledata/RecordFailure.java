@@ -11,7 +11,6 @@ import org.folio.tlib.postgres.TenantPgPool;
 import org.folio.tlib.postgres.cqlfield.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -219,7 +218,7 @@ public class RecordFailure extends Entity {
 
     @Override
     public Future<Void> createDatabase(TenantPgPool pool) {
-        return executeSqlStatements(pool, List.of(
+        return executeSqlStatements(pool,
 
                 "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
                 + "("
@@ -234,9 +233,8 @@ public class RecordFailure extends Entity {
                 + ")",
 
                 "CREATE INDEX IF NOT EXISTS record_failure_import_job_id_idx "
-                        + " ON " + pool.getSchema() + "." + table() + "(" + dbColumnName(IMPORT_JOB_ID) + ")"))
-
-                .mapEmpty();
+                        + " ON " + pool.getSchema() + "." + table() + "(" + dbColumnName(IMPORT_JOB_ID) + ")"
+        ).mapEmpty();
 
     }
 

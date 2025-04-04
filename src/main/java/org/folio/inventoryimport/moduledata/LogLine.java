@@ -10,7 +10,6 @@ import org.folio.inventoryimport.moduledata.database.Tables;
 import org.folio.tlib.postgres.TenantPgPool;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -140,7 +139,7 @@ public class LogLine extends Entity {
 
     @Override
     public Future<Void> createDatabase(TenantPgPool pool) {
-        return executeSqlStatements(pool, List.of(
+        return executeSqlStatements(pool,
 
                 "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
                 + "("
@@ -153,9 +152,8 @@ public class LogLine extends Entity {
                 + ")",
 
                 "CREATE INDEX IF NOT EXISTS log_statement_import_job_id_idx "
-                                + " ON " + pool.getSchema() + "." + table() + "(" + dbColumnName(IMPORT_JOB_ID) + ")"))
-
-                .mapEmpty();
+                                + " ON " + pool.getSchema() + "." + table() + "(" + dbColumnName(IMPORT_JOB_ID) + ")"
+        ).mapEmpty();
     }
 
 }

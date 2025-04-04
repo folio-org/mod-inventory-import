@@ -11,7 +11,6 @@ import org.folio.tlib.postgres.TenantPgPool;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -302,8 +301,7 @@ public class ImportJobLog extends Entity {
 
     @Override
     public Future<Void> createDatabase(TenantPgPool pool) {
-        return executeSqlStatements(pool, List.of(
-
+        return executeSqlStatements(pool,
                 "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
                 + "("
                 + dbColumnNameAndType(ID) + " PRIMARY KEY, "
@@ -324,9 +322,8 @@ public class ImportJobLog extends Entity {
                 + dbColumnNameAndType(MESSAGE) + ")",
 
                 "CREATE INDEX IF NOT EXISTS import_job_import_config_id_idx "
-                        + " ON " + pool.getSchema() + "." + table() + "(" + dbColumnName(IMPORT_CONFIG_ID) + ")"))
-
-                .mapEmpty();
+                        + " ON " + pool.getSchema() + "." + table() + "(" + dbColumnName(IMPORT_CONFIG_ID) + ")"
+        ).mapEmpty();
     }
 
 }

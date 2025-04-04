@@ -135,8 +135,7 @@ public class ImportConfig extends Entity {
 
     @Override
     public Future<Void> createDatabase(TenantPgPool pool) {
-        return executeSqlStatement(pool,
-
+        return executeSqlStatements(pool,
                 "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
                 + "("
                 + field(ID).pgColumnDdl() + ", "
@@ -150,9 +149,8 @@ public class ImportConfig extends Entity {
                 + " REFERENCES " + pool.getSchema() + "." + Tables.transformation
                         + " (" + new Transformation().dbColumnName(Transformation.ID) + "), "
                 + field(STORAGE_ID).pgColumnDdl()
-                + ")")
-
-                .mapEmpty();
+                + ")"
+        ).mapEmpty();
     }
 
 }

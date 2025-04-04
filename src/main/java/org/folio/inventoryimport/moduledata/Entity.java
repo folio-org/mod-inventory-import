@@ -19,7 +19,6 @@ import org.folio.tlib.postgres.PgCqlQuery;
 import org.folio.tlib.postgres.TenantPgPool;
 import org.folio.tlib.postgres.cqlfield.PgCqlFieldAlwaysMatches;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -49,7 +48,7 @@ public abstract class Entity {
                 .forEach(field -> columnsDdl.append(field(field).pgColumn().getColumnDdl()).append(","));
         columnsDdl.deleteCharAt(columnsDdl.length() - 1); // remove ending comma
 
-        return executeSqlStatement(pool,
+        return executeSqlStatements(pool,
                 "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
                         + "("
                         + columnsDdl
@@ -57,11 +56,7 @@ public abstract class Entity {
                 .mapEmpty();
     }
 
-    protected Future<RowSet<Row>> executeSqlStatement(TenantPgPool pool, String statement) {
-        return executeSqlStatements(pool, List.of(statement));
-    }
-
-    protected Future<RowSet<Row>> executeSqlStatements(TenantPgPool pool, List<String> statements) {
+    protected Future<RowSet<Row>> executeSqlStatements(TenantPgPool pool, String... statements) {
             Future<RowSet<Row>> future = Future.succeededFuture();
             for (var sql : statements) {
                 future = future.compose(x -> pool.query(sql).execute()
