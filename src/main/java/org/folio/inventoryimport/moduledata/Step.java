@@ -6,6 +6,7 @@ import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.TupleMapper;
 import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
 import org.folio.inventoryimport.moduledata.database.Tables;
+import org.folio.tlib.postgres.TenantPgPool;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -168,6 +169,12 @@ public class Step extends Entity {
                 "UPDATE " + storage.schema() + "." + table()
                         + " SET " + dbColumnName(SCRIPT) + " = '" + xslt.replaceAll(System.lineSeparator(), "\n")+"'"
                         + "WHERE id = #{id}");
+    }
+
+    @Override
+    public Future<Void> createDatabase(TenantPgPool pool) {
+        // table without indexes or foreign keys.
+        return super.createDatabase(pool);
     }
 
 }

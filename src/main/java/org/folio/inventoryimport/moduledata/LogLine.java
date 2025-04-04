@@ -1,11 +1,13 @@
 package org.folio.inventoryimport.moduledata;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.TupleMapper;
 import org.folio.inventoryimport.moduledata.database.SqlQuery;
 import org.folio.inventoryimport.moduledata.database.Tables;
+import org.folio.tlib.postgres.TenantPgPool;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -52,21 +54,6 @@ public class LogLine extends Entity {
     @Override
     public Tables table() {
         return Tables.log_statement;
-    }
-
-    /**
-     * CREATE TABLE SQL template.
-     */
-    public String makeCreateTableSql(String schema) {
-        return  "CREATE TABLE IF NOT EXISTS " + schema + "." + table()
-                + "("
-                + dbColumnName(ID) + " UUID PRIMARY KEY, "
-                + dbColumnName(IMPORT_JOB_ID) + " UUID NOT NULL "
-                + " REFERENCES " + schema + "." + Tables.import_job + " (" + new ImportJobLog().dbColumnName(ID) + "), "
-                + dbColumnName(TIME_STAMP) + " TIMESTAMP NOT NULL, "
-                + dbColumnName(JOB_LABEL) + " TEXT NOT NULL, "
-                + dbColumnName(LOG_STATEMENT) + " TEXT NOT NULL"
-                + ")";
     }
 
     @Override
@@ -148,6 +135,25 @@ public class LogLine extends Entity {
         json.put(jsonPropertyName(JOB_LABEL), record.jobLabel);
         json.put(jsonPropertyName(LOG_STATEMENT), record.line);
         return json;
+    }
+
+    @Override
+    public Future<Void> createDatabase(TenantPgPool pool) {
+        return executeSqlStatements(pool,
+
+                "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
+                + "("
+                + dbColumnName(ID) + " UUID PRIMARY KEY, "
+                + dbColumnName(IMPORT_JOB_ID) + " UUID NOT NULL "
+                + " REFERENCES " + pool.getSchema() + "." + Tables.import_job + " (" + new ImportJobLog().dbColumnName(ID) + "), "
+                + dbColumnName(TIME_STAMP) + " TIMESTAMP NOT NULL, "
+                + dbColumnName(JOB_LABEL) + " TEXT NOT NULL, "
+                + dbColumnName(LOG_STATEMENT) + " TEXT NOT NULL"
+                + ")",
+
+                "CREATE INDEX IF NOT EXISTS log_statement_import_job_id_idx "
+                                + " ON " + pool.getSchema() + "." + table() + "(" + dbColumnName(IMPORT_JOB_ID) + ")"
+        ).mapEmpty();
     }
 
 }

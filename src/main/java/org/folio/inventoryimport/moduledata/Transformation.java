@@ -1,9 +1,11 @@
 package org.folio.inventoryimport.moduledata;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.TupleMapper;
 import org.folio.inventoryimport.moduledata.database.Tables;
+import org.folio.tlib.postgres.TenantPgPool;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -91,4 +93,12 @@ public class Transformation extends Entity {
                     return parameters;
                 });
     }
+
+    @Override
+    public Future<Void> createDatabase(TenantPgPool pool) {
+        // table without indexes or foreign keys.
+        return super.createDatabase(pool);
+    }
+
+
 }
