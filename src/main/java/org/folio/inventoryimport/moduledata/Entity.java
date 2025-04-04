@@ -1,23 +1,32 @@
 package org.folio.inventoryimport.moduledata;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.validation.RequestParameter;
 import io.vertx.ext.web.validation.RequestParameters;
 import io.vertx.ext.web.validation.ValidationHandler;
+import io.vertx.sqlclient.Row;
+import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.TupleMapper;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.moduledata.database.SqlQuery;
 import org.folio.inventoryimport.moduledata.database.Tables;
 import org.folio.tlib.postgres.PgCqlDefinition;
 import org.folio.tlib.postgres.PgCqlQuery;
+import org.folio.tlib.postgres.TenantPgPool;
 import org.folio.tlib.postgres.cqlfield.PgCqlFieldAlwaysMatches;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 public abstract class Entity {
+
+    public static final Logger logger = LogManager.getLogger("inventory-import");
 
     /**
      * Implement to return an enum identifier for the underlying database table for the implementing entity.
@@ -25,9 +34,46 @@ public abstract class Entity {
      */
     public abstract Tables table();
 
+
+    /**
+     * Build and execute the DDL statements for creating the database objects for persisting the entity.
+     * The default implementation is for the simplest possible table with no foreign key constraints, indexes
+     * or special column validations etc. Commonly overridden.
+     *
+     * @param pool the TenantPgPool for executing the DDL
+     * @return Empty future when done
+     */
+    public Future<Void> createDatabase(TenantPgPool pool) {
+        StringBuilder columnsDdl = new StringBuilder();
+        fields().keySet()
+                .forEach(field -> columnsDdl.append(field(field).pgColumn().getColumnDdl()).append(","));
+        columnsDdl.deleteCharAt(columnsDdl.length() - 1); // remove ending comma
+
+        return executeSqlStatement(pool,
+                "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
+                        + "("
+                        + columnsDdl
+                        + ")")
+                .mapEmpty();
+    }
+
+    protected Future<RowSet<Row>> executeSqlStatement(TenantPgPool pool, String statement) {
+        return executeSqlStatements(pool, List.of(statement));
+    }
+
+    protected Future<RowSet<Row>> executeSqlStatements(TenantPgPool pool, List<String> statements) {
+            Future<RowSet<Row>> future = Future.succeededFuture();
+            for (var sql : statements) {
+                future = future.compose(x -> pool.query(sql).execute()
+                        .onFailure(e -> logger.error("Failed to execute [" + sql + "]: " + e.getMessage() )));
+            }
+            return future;
+    }
+
     public String table(String schema) {
         return schema + "." + table().toString();
     }
+
 
     /**
      * Represents a field of an entity, containing JSON property name, database column name and other features of the field.
@@ -69,23 +115,6 @@ public abstract class Entity {
      * @return json representation of the entity
      */
     public abstract JsonObject asJson();
-
-    /**
-     * Simple, default DDL SQL for creating a Postgres table for the entity.
-     * For tables with foreign constraints, special column constraints or defaults etc.
-     * this would need to be overridden by the implementing entity class.
-     */
-    public String makeCreateTableSql(String schema) {
-        StringBuilder columnsDdl = new StringBuilder();
-        fields().keySet()
-                .forEach(field -> columnsDdl.append(field(field).pgColumn().getColumnDdl()).append(","));
-        columnsDdl.deleteCharAt(columnsDdl.length() - 1); // remove ending comma
-
-        return "CREATE TABLE IF NOT EXISTS " + schema + "." + table()
-                + "("
-                + columnsDdl
-                + ")";
-    }
 
     /**
      * Vert.x / Postgres template for table insert, using a tuple mapper.

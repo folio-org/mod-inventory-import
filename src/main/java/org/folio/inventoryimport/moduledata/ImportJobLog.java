@@ -1,14 +1,17 @@
 package org.folio.inventoryimport.moduledata;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.TupleMapper;
 import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
 import org.folio.inventoryimport.moduledata.database.Tables;
 import org.folio.inventoryimport.utils.SettableClock;
+import org.folio.tlib.postgres.TenantPgPool;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -244,28 +247,6 @@ public class ImportJobLog extends Entity {
         return "Import job log";
     }
 
-    public String makeCreateTableSql(String schema) {
-        return  "CREATE TABLE IF NOT EXISTS " + schema + "." + table()
-                + "("
-                + dbColumnNameAndType(ID) + " PRIMARY KEY, "
-                + dbColumnNameAndType(IMPORT_CONFIG_ID) + " NOT NULL "
-                + " REFERENCES " + schema + "." + Tables.import_config + " (" + new ImportConfig().dbColumnName(ID) + "), "
-                + dbColumnNameAndType(IMPORT_CONFIG_NAME)  + ", "
-                + dbColumnNameAndType(IMPORT_TYPE) + ", "
-                + dbColumnNameAndType(URL) + ", "
-                + dbColumnNameAndType(ALLOW_ERRORS) + ", "
-                + dbColumnNameAndType(RECORD_LIMIT) + ", "
-                + dbColumnNameAndType(BATCH_SIZE) + ", "
-                + dbColumnNameAndType(TRANSFORMATION) + ", "
-                + dbColumnNameAndType(STORAGE) + ", "
-                + dbColumnNameAndType(STATUS) + ", "
-                + dbColumnNameAndType(STARTED) + " NOT NULL, "
-                + dbColumnNameAndType(FINISHED) + ", "
-                + dbColumnNameAndType(AMOUNT_HARVESTED) + ", "
-                + dbColumnNameAndType(MESSAGE)
-                + ")";
-    }
-
     public String makeInsertTemplate(String schema) {
         return "INSERT INTO " + schema + "." + table()
                 + " ("
@@ -318,4 +299,34 @@ public class ImportJobLog extends Entity {
                 record.url, record.allowErrors, record.recordLimit, record.batchSize, record.transformation, record.storage,
                 record.status, record.started, finished.toString(), record.amountHarvested, record.message);
     }
+
+    @Override
+    public Future<Void> createDatabase(TenantPgPool pool) {
+        return executeSqlStatements(pool, List.of(
+
+                "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
+                + "("
+                + dbColumnNameAndType(ID) + " PRIMARY KEY, "
+                + dbColumnNameAndType(IMPORT_CONFIG_ID) + " NOT NULL "
+                + " REFERENCES " + pool.getSchema() + "." + Tables.import_config + " (" + new ImportConfig().dbColumnName(ID) + "), "
+                + dbColumnNameAndType(IMPORT_CONFIG_NAME)  + ", "
+                + dbColumnNameAndType(IMPORT_TYPE) + ", "
+                + dbColumnNameAndType(URL) + ", "
+                + dbColumnNameAndType(ALLOW_ERRORS) + ", "
+                + dbColumnNameAndType(RECORD_LIMIT) + ", "
+                + dbColumnNameAndType(BATCH_SIZE) + ", "
+                + dbColumnNameAndType(TRANSFORMATION) + ", "
+                + dbColumnNameAndType(STORAGE) + ", "
+                + dbColumnNameAndType(STATUS) + ", "
+                + dbColumnNameAndType(STARTED) + " NOT NULL, "
+                + dbColumnNameAndType(FINISHED) + ", "
+                + dbColumnNameAndType(AMOUNT_HARVESTED) + ", "
+                + dbColumnNameAndType(MESSAGE) + ")",
+
+                "CREATE INDEX IF NOT EXISTS import_job_import_config_id_idx "
+                        + " ON " + pool.getSchema() + "." + table() + "(" + dbColumnName(IMPORT_CONFIG_ID) + ")"))
+
+                .mapEmpty();
+    }
+
 }

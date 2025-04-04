@@ -1,9 +1,11 @@
 package org.folio.inventoryimport.moduledata;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.TupleMapper;
 import org.folio.inventoryimport.moduledata.database.Tables;
+import org.folio.tlib.postgres.TenantPgPool;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -96,16 +98,22 @@ public class TransformationStep extends Entity {
         return Tables.transformation_step;
     }
 
+
     @Override
-    public String makeCreateTableSql(String schema) {
-        return  "CREATE TABLE IF NOT EXISTS " + schema + "." + table()
+    public Future<Void> createDatabase(TenantPgPool pool) {
+        return executeSqlStatement(pool,
+
+                "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
                 + " ("
                 + dbColumnName(ID) + " UUID PRIMARY KEY, "
                 + dbColumnName(TRANSFORMATION_ID) + " UUID NOT NULL "
-                + " REFERENCES " + schema + "." + Tables.transformation + "(" + new Transformation().dbColumnName(Transformation.ID) + "), "
+                + " REFERENCES " + pool.getSchema() + "." + Tables.transformation + "(" + new Transformation().dbColumnName(Transformation.ID) + "), "
                 + dbColumnName(STEP_ID) + " UUID NOT NULL "
-                + " REFERENCES " + schema + "." + Tables.step + "(" + new Step().dbColumnName(Step.ID) + "), "
+                + " REFERENCES " + pool.getSchema() + "." + Tables.step + "(" + new Step().dbColumnName(Step.ID) + "), "
                 + dbColumnName(POSITION) + " INTEGER NOT NULL "
-                + ") ";
+                + ") ")
+
+                .mapEmpty();
     }
+
 }

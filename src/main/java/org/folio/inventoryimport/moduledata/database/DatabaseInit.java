@@ -1,25 +1,30 @@
 package org.folio.inventoryimport.moduledata.database;
 
 import io.vertx.core.Future;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.moduledata.*;
 import org.folio.tlib.postgres.TenantPgPool;
 
 public class DatabaseInit {
 
+    static final Logger logger = LogManager.getLogger(DatabaseInit.class);
+
+
     /**
      * Creates tables and views.
      */
     public static Future<Void> createDatabase(TenantPgPool pool) {
-        String schema = pool.getSchema();
-        return pool.query(new Step().makeCreateTableSql(schema)).execute()
-                .compose(ignore -> pool.query(new Transformation().makeCreateTableSql(schema)).execute())
-                .compose(ignore -> pool.query(new ImportConfig().makeCreateTableSql(schema)).execute())
-                .compose(ignore -> pool.query(new ImportJobLog().makeCreateTableSql(schema)).execute())
-                .compose(ignore -> pool.query(new RecordFailure().makeCreateTableSql(schema)).execute())
-                .compose(ignore -> pool.query(createRecordFailureView(schema)).execute())
-                .compose(ignore -> pool.query(new LogLine().makeCreateTableSql(schema)).execute())
-                .compose(ignore -> pool.query(new TransformationStep().makeCreateTableSql(schema)).execute())
+        return create(new Step(), pool)
+                .compose(na -> create(new Transformation(), pool))
+                .compose(na -> create(new ImportConfig(), pool))
+                .compose(na -> create(new ImportJobLog(), pool))
+                .compose(na -> create(new RecordFailure(), pool))
+                .compose(na -> create(new LogLine(), pool))
+                .compose(na -> create(new TransformationStep(), pool))
+                .compose(na -> pool.query(createRecordFailureView(pool.getSchema())).execute())
                 .mapEmpty();
+
 
         /* Template for processing parameters in init.
           JsonArray parameters = tenantAttributes.getJsonArray("parameters");
@@ -35,7 +40,17 @@ public class DatabaseInit {
     }
 
     /**
-     * Creates view.
+     * Creates database objects for an entity
+     * @param entity the domain object to persist
+     * @param pool the tenant specific Postgres pool.
+     */
+    public static Future<Void> create(Entity entity, TenantPgPool pool) {
+        return entity.createDatabase(pool)
+                .onFailure(e -> logger.error("Error creating table [" + entity.table() + "] or related objects: " +  e.getMessage()));
+    }
+
+    /**
+     * Creates specific view.
      */
     public static String createRecordFailureView(String schema) {
         String ddl;

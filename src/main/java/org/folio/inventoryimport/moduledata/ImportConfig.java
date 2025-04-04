@@ -1,9 +1,11 @@
 package org.folio.inventoryimport.moduledata;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.TupleMapper;
 import org.folio.inventoryimport.moduledata.database.Tables;
+import org.folio.tlib.postgres.TenantPgPool;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -131,8 +133,11 @@ public class ImportConfig extends Entity {
         return Tables.import_config;
     }
 
-    public String makeCreateTableSql(String schema) {
-        return "CREATE TABLE IF NOT EXISTS " + schema + "." + table()
+    @Override
+    public Future<Void> createDatabase(TenantPgPool pool) {
+        return executeSqlStatement(pool,
+
+                "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
                 + "("
                 + field(ID).pgColumnDdl() + ", "
                 + field(NAME).pgColumnDdl() + ", "
@@ -142,9 +147,12 @@ public class ImportConfig extends Entity {
                 + field(RECORD_LIMIT).pgColumnDdl() + ", "
                 + field(BATCH_SIZE).pgColumnDdl() + ", "
                 + field(TRANSFORMATION_ID).pgColumnDdl()
-                + " REFERENCES " + schema + "." + Tables.transformation + " (" + new Transformation().dbColumnName(Transformation.ID) + "), "
+                + " REFERENCES " + pool.getSchema() + "." + Tables.transformation
+                        + " (" + new Transformation().dbColumnName(Transformation.ID) + "), "
                 + field(STORAGE_ID).pgColumnDdl()
-                + ")";
+                + ")")
+
+                .mapEmpty();
     }
 
 }

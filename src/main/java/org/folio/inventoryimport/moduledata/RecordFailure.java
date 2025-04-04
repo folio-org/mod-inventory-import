@@ -1,14 +1,17 @@
 package org.folio.inventoryimport.moduledata;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.TupleMapper;
 import org.folio.inventoryimport.moduledata.database.Tables;
 import org.folio.tlib.postgres.PgCqlDefinition;
+import org.folio.tlib.postgres.TenantPgPool;
 import org.folio.tlib.postgres.cqlfield.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -96,23 +99,6 @@ public class RecordFailure extends Entity {
                 json.getJsonArray(jsonPropertyName(RECORD_ERRORS)),
                 json.getJsonObject(jsonPropertyName(TRANSFORMED_RECORD))
         );
-    }
-
-    /**
-     * CREATE TABLE statement.
-     */
-    public String makeCreateTableSql(String schema) {
-        return "CREATE TABLE IF NOT EXISTS " + schema + "." + Tables.record_failure
-                + "("
-                + dbColumnNameAndType(ID) + " PRIMARY KEY, "
-                + dbColumnNameAndType(IMPORT_JOB_ID) + " NOT NULL REFERENCES "
-                + schema + "." + Tables.import_job + "(" + new ImportJobLog().dbColumnName(ID) + "), "
-                + dbColumnNameAndType(RECORD_NUMBER) + ", "
-                + dbColumnNameAndType(TIME_STAMP) + ", "
-                + dbColumnNameAndType(RECORD_ERRORS) + " NOT NULL, "
-                + dbColumnNameAndType(ORIGINAL_RECORD) + " NOT NULL, "
-                + dbColumnNameAndType(TRANSFORMED_RECORD) + " NOT NULL"
-                + ")";
     }
 
     /**
@@ -230,5 +216,29 @@ public class RecordFailure extends Entity {
         json.put(jsonPropertyName(TRANSFORMED_RECORD), record.transformedRecord);
         return json;
     }
+
+    @Override
+    public Future<Void> createDatabase(TenantPgPool pool) {
+        return executeSqlStatements(pool, List.of(
+
+                "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
+                + "("
+                + dbColumnNameAndType(ID) + " PRIMARY KEY, "
+                + dbColumnNameAndType(IMPORT_JOB_ID) + " NOT NULL REFERENCES "
+                + pool.getSchema() + "." + Tables.import_job + "(" + new ImportJobLog().dbColumnName(ID) + "), "
+                + dbColumnNameAndType(RECORD_NUMBER) + ", "
+                + dbColumnNameAndType(TIME_STAMP) + ", "
+                + dbColumnNameAndType(RECORD_ERRORS) + " NOT NULL, "
+                + dbColumnNameAndType(ORIGINAL_RECORD) + " NOT NULL, "
+                + dbColumnNameAndType(TRANSFORMED_RECORD) + " NOT NULL"
+                + ")",
+
+                "CREATE INDEX IF NOT EXISTS record_failure_import_job_id_idx "
+                        + " ON " + pool.getSchema() + "." + table() + "(" + dbColumnName(IMPORT_JOB_ID) + ")"))
+
+                .mapEmpty();
+
+    }
+
 
 }
