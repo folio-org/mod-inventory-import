@@ -68,7 +68,7 @@ public class XmlRecordsFromFile extends DefaultHandler implements RecordProvider
         if (record != null) {
             record += "</" + qName + ">";
             if (qName.equals("record")) {
-                target.put(record);
+                target.put(new RecordCarrier(record));
                 record = "";
             }
         }

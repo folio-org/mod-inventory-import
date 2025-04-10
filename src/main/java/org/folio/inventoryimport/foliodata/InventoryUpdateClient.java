@@ -3,6 +3,7 @@ package org.folio.inventoryimport.foliodata;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.LogManager;
@@ -29,7 +30,7 @@ public class InventoryUpdateClient {
         return inventoryUpdateClient;
     }
 
-    public Future<JsonObject> inventoryUpsert (JsonObject recordSets) {
+    public Future<UpsertResponse> inventoryUpsert (JsonObject recordSets) {
         Buffer records = Buffer.buffer(recordSets.encode().getBytes(StandardCharsets.UTF_8));
         okapiClient.disableInfoLog();
         return okapiClient
@@ -39,8 +40,26 @@ public class InventoryUpdateClient {
                     if (okapiClient.getStatusCode() == 207) {
                         logger.error(responseJson.getJsonArray("errors").getJsonObject(0).getString("shortMessage"));
                     }
-                    return Future.succeededFuture(responseJson);
+                    return Future.succeededFuture(new UpsertResponse(okapiClient.getStatusCode(), responseJson));
                 })
                 .onFailure(e -> logger.error("Could not upsert batch: " + e.getMessage()));
+    }
+
+    public record UpsertResponse (int statusCode, JsonObject json) {
+        public JsonObject getMetrics() {
+            if (json != null) {
+                return json().getJsonObject("metrics");
+            } else {
+                return new JsonObject();
+            }
+        }
+
+        public JsonArray getErrors() {
+            if (json != null) {
+                return json.getJsonArray("errors");
+            } else {
+                return new JsonArray();
+            }
+        }
     }
 }

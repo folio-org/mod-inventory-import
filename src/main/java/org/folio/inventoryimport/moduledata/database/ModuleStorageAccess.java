@@ -101,9 +101,8 @@ public class ModuleStorageAccess {
                 .mapFrom(entity.getTupleMapper())
                 .execute(entity)
                 .onSuccess(res -> logger.info("Updated " + entity.entityName().toLowerCase() + "."))
-                .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage()))
+                .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage() + " " + updateTemplate))
                 .mapEmpty();
-
     }
 
     public Future<Void> storeEntities(Entity definition, List<Entity> entities) {

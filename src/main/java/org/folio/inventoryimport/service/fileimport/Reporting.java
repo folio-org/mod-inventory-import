@@ -2,6 +2,7 @@ package org.folio.inventoryimport.service.fileimport;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.moduledata.Entity;
@@ -102,6 +103,10 @@ public class Reporting {
                     " records processed in " + processingTimeAsString(processingTime) + " (" +
                     (recordsProcessed.get() * 1000L / processingTime) + " recs/s.)");
         }
+    }
+
+    public void reportErrors(JsonArray errors) {
+        System.out.println("Report Errors: " + errors.encodePrettily());
     }
 
     private static String processingTimeAsString (long processingTime) {

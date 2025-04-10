@@ -17,10 +17,12 @@ public class Files {
 
   public static String XML_INVENTORY_RECORD_SET = getSampleFile("sourcefiles/inventoryRecordSet.xml");
 
-  public static JsonObject JSON_TRANSFORMATION = new JsonObject(Objects.requireNonNull(getSampleFile("configs/transformation.json")));
+  public static JsonObject JSON_TRANSFORMATION_CONFIG = new JsonObject(Objects.requireNonNull(getSampleFile("configs/transformation.json")));
   public static JsonObject JSON_IMPORT_CONFIG = new JsonObject(Objects.requireNonNull(getSampleFile("configs/importConfig.json")));
   public static JsonObject JSON_IMPORT_JOB = new JsonObject(Objects.requireNonNull(getSampleFile("jobs/importJob.json")));
   public static JsonObject JSON_FAILED_RECORDS = new JsonObject(Objects.requireNonNull(getSampleFile("jobs/failed-records.json")));
+
+  public static JsonObject JSON_SINGLE_RECORD_UPSERT_RESPONSE_OK = new JsonObject(Objects.requireNonNull(getSampleFile("responses/singleRecordUpsertResponse.json")));
 
   private static String getSampleFile(String filename) {
     try {

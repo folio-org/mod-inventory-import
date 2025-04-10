@@ -12,6 +12,7 @@ import org.folio.inventoryimport.moduledata.Step;
 import org.folio.inventoryimport.moduledata.TransformationStep;
 import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
 import org.folio.inventoryimport.service.fileimport.RecordReceiver;
+import org.folio.inventoryimport.service.fileimport.RecordCarrier;
 
 import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
@@ -107,14 +108,14 @@ public class TransformationPipeline implements RecordReceiver {
     }
 
     @Override
-    public void put(String xmlRecord) {
+    public void put(RecordCarrier record) {
         long transformationStarted = System.currentTimeMillis();
         records++;
-        xmlRecord = "<collection>" + xmlRecord + "</collection>";
-        String transformedXmlRecord = transform(xmlRecord);
+        String transformedXmlRecord = transform("<collection>" + record.getRecord() + "</collection>");
         String jsonRecord = convertToJson(transformedXmlRecord);
+        record.update(jsonRecord);
         transformationTime += (System.currentTimeMillis() - transformationStarted);
-        target.put(jsonRecord);
+        target.put(record);
     }
 
     @Override

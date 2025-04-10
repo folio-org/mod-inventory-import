@@ -9,6 +9,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.foliodata.InventoryUpdateClient;
 
+import java.util.ArrayList;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -16,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class InventoryBatchUpdater implements RecordReceiver {
 
     private final ImportJob job;
+    private ArrayList<RecordCarrier> records = new ArrayList<>();
     private JsonArray inventoryRecordSets = new JsonArray();
     private final InventoryUpdateClient updateClient;
     private final Turnstile turnstile = new Turnstile();
@@ -28,9 +30,9 @@ public class InventoryBatchUpdater implements RecordReceiver {
     }
 
     @Override
-    public void put(String jsonRecord) {
-        if (jsonRecord != null) {
-            JsonObject json = new JsonObject(jsonRecord).getJsonArray("inventoryRecordSets").getJsonObject(0);
+    public void put(RecordCarrier record) {
+        if (record != null) {
+            JsonObject json = new JsonObject(record.getRecord());
             if (!json.containsKey("processing")) {
                 json.put("processing", new JsonObject());
             }
@@ -60,17 +62,20 @@ public class InventoryBatchUpdater implements RecordReceiver {
 
     /**
      * This is the last function of the import pipeline, and since it's asynchronous
-     * it must be in charge of when to invoke reporting. JobHandler will not
-     * otherwise know when the last upsert of a source file of records is done, for example.
+     * it must be in charge of when to invoke reporting. The job handling verticle will not
+     * know when the last upsert of a source file of records is done, for example.
      */
     private Future<Void> persistBatch() {
         Promise<Void> promise = Promise.promise();
         BatchOfRecords batch = turnstile.viewCurrentBatch();
         if (batch != null) {
             if (batch.size() > 0) {
-                updateClient.inventoryUpsert(batch.getUpsertRequestBody()).onComplete(json -> {
+                updateClient.inventoryUpsert(batch.getUpsertRequestBody()).onSuccess(upsert -> {
                     job.reporting.incrementRecordsProcessed(batch.size());
-                    job.reporting.incrementInventoryMetrics(new InventoryMetrics(json.result().getJsonObject("metrics")));
+                    if (upsert.statusCode() == 207) {
+                        job.reporting.reportErrors(upsert.getErrors());
+                    }
+                    job.reporting.incrementInventoryMetrics(new InventoryMetrics(upsert.getMetrics()));
                     if (batch.isLastBatchOfFile()) {
                         reportEndOfFile();
                     }
