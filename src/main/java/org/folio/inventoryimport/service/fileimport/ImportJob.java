@@ -7,7 +7,6 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.moduledata.ImportConfig;
-import org.folio.inventoryimport.moduledata.ImportJobLog;
 import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
 import org.folio.inventoryimport.service.fileimport.transformation.TransformationPipeline;
 import org.folio.inventoryimport.utils.SettableClock;
@@ -21,7 +20,7 @@ import java.util.UUID;
 
 public class ImportJob {
     final UUID importConfigId;
-    ImportJobLog importJobLog;
+    org.folio.inventoryimport.moduledata.ImportJob importJob;
     Reporting reporting;
     FileQueue fileQueue;
     TransformationPipeline transformationPipeline;
@@ -55,7 +54,7 @@ public class ImportJob {
     }
 
     public void setFinishedDateTime() {
-        importJobLog.logFinishTime(SettableClock.getLocalDateTime(), configStorage);
+        importJob.logFinishTime(SettableClock.getLocalDateTime(), configStorage);
     }
 
     Future<Void> processFile(File xmlFile) {
@@ -90,16 +89,16 @@ public class ImportJob {
     }
 
     private Future<UUID> initiateJobLog (UUID importConfigId) {
-        return configStorage.getEntityById(importConfigId, new ImportConfig())
+        return configStorage.getEntity(importConfigId, new ImportConfig())
                 .compose(importConfig -> {
-                    importJobLog = new ImportJobLog().fromImportConfig((ImportConfig) importConfig);
-                    return configStorage.storeEntity(importJobLog);
+                    importJob = new org.folio.inventoryimport.moduledata.ImportJob().fromImportConfig((ImportConfig) importConfig);
+                    return configStorage.storeEntity(importJob);
                 });
     }
 
     private Future<TransformationPipeline> getTransformationPipeline(String tenant, UUID importConfigId, Vertx vertx) {
         Promise<TransformationPipeline> promise = Promise.promise();
-        new ModuleStorageAccess(vertx, tenant).getEntityById(importConfigId,new ImportConfig())
+        new ModuleStorageAccess(vertx, tenant).getEntity(importConfigId,new ImportConfig())
                 .map(cfg -> ((ImportConfig) cfg).record.transformationId())
                 .compose(transformationId -> TransformationPipeline.create(vertx, tenant, transformationId))
                 .onComplete(pipelineBuild -> {

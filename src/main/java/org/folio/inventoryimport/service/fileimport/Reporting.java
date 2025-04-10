@@ -117,9 +117,9 @@ public class Reporting {
         List<Entity> lines = new ArrayList<>();
         lines.add(new LogLine(
                 UUID.randomUUID(),
-                importJob.importJobLog.record.id(),
+                importJob.importJob.record.id(),
                 SettableClock.getLocalDateTime().toString(),
-                importJob.importJobLog.record.importConfigName(),
+                importJob.importJob.record.importConfigName(),
                 statement));
         return storage.storeEntities(new LogLine(),lines);
     }

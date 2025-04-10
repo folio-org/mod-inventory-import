@@ -2,13 +2,16 @@
   "description": "Result set import job configurations.",
   "type": "object",
   "properties": {
-    "previousJobs": {
+    "importConfigs": {
       "description": "List of import configurations",
       "type": "array",
       "items": {
         "type": "object",
         "$ref": "importConfigGet.json"
       }
-    }
+    },
+    "totalRecords": {
+      "description": "Total number of records in response",
+      "type": "integer"    }
   }
 }

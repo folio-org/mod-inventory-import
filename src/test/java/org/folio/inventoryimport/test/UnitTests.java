@@ -18,7 +18,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.folio.inventoryimport.MainVerticle;
 import org.folio.inventoryimport.service.fileimport.FileQueue;
 import org.folio.inventoryimport.test.fakestorage.FakeFolioApis;
-import org.folio.inventoryimport.test.sampleData.Samples;
+import org.folio.inventoryimport.test.fixtures.SampleFiles;
 import org.folio.inventoryimport.utils.SettableClock;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.tlib.postgres.testing.TenantPgPoolContainer;
@@ -36,13 +36,13 @@ import java.util.UUID;
 import static io.restassured.RestAssured.given;
 import static org.awaitility.Awaitility.await;
 import static org.folio.inventoryimport.test.Statics.*;
-import static org.folio.inventoryimport.test.sampleData.Samples.*;
+import static org.folio.inventoryimport.test.fixtures.SampleFiles.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
 @RunWith(VertxUnitRunner.class)
-public class TestSuite {
-    private static final Logger logger = LoggerFactory.getLogger(TestSuite.class);
+public class UnitTests {
+    public static final Logger logger = LoggerFactory.getLogger(UnitTests.class);
 
     static Vertx vertx;
 
@@ -146,7 +146,7 @@ public class TestSuite {
                                 .setParam("http.socket.timeout", timeOutInMilliseconds)))
                 .build();
     }
-
+    
     @Test
     public void canPostAndGetTransformation() {
         JsonObject transformation = new JsonObject();
@@ -164,12 +164,12 @@ public class TestSuite {
         step.put("id", STEP_ID)
                 .put("name", "test step")
                 .put("enabled", true)
-                .put("script", COPY_XML_DOC_XSLT);
+                .put("script", SampleFiles.COPY_XML_DOC_XSLT);
 
         postJsonObject(PATH_STEPS, step);
         getRecordById(PATH_STEPS, STEP_ID).extract().response().getBody().prettyPrint();
         assertThat(getRecords(PATH_STEPS).extract().path("totalRecords"), is(1));
-        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(COPY_XML_DOC_XSLT));
+        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(SampleFiles.COPY_XML_DOC_XSLT));
     }
 
     @Test
@@ -178,7 +178,7 @@ public class TestSuite {
         step.put("id", STEP_ID)
                 .put("name", "test step")
                 .put("enabled", true)
-                .put("script", INVALID_XSLT);
+                .put("script", SampleFiles.INVALID_XSLT);
 
         given()
                 .baseUri(BASE_URI_INVENTORY_IMPORT)
@@ -201,8 +201,8 @@ public class TestSuite {
         postJsonObject(PATH_STEPS, step);
         getRecordById(PATH_STEPS, STEP_ID).extract().response().getBody().prettyPrint();
         await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(EMPTY_XSLT));
-        putXml(PATH_STEPS + "/" + STEP_ID + "/script", COPY_XML_DOC_XSLT);
-        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(COPY_XML_DOC_XSLT));
+        putXml(PATH_STEPS + "/" + STEP_ID + "/script", SampleFiles.COPY_XML_DOC_XSLT);
+        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(SampleFiles.COPY_XML_DOC_XSLT));
     }
 
     @Test
@@ -217,7 +217,7 @@ public class TestSuite {
                 .baseUri(BASE_URI_INVENTORY_IMPORT)
                 .header(OKAPI_TENANT)
                 .header(OKAPI_URL)
-                .body(INVALID_XSLT)
+                .body(SampleFiles.INVALID_XSLT)
                 .header(CONTENT_TYPE_XML)
                 .put(PATH_STEPS + "/" + STEP_ID + "/script")
                 .then()
@@ -256,7 +256,7 @@ public class TestSuite {
         step.put("id", STEP_ID)
                 .put("name", "test step")
                 .put("enabled", true)
-                .put("script", COPY_XML_DOC_XSLT);
+                .put("script", SampleFiles.COPY_XML_DOC_XSLT);
         postJsonObject(PATH_STEPS, step);
 
         JsonObject transformation = new JsonObject();
@@ -294,7 +294,7 @@ public class TestSuite {
     }
 
     @Test
-    public void canPostAndGetImportJob() {
+    public void canPostAndGetAndDeleteImportJob() {
         JsonObject transformation = new JsonObject();
         transformation.put("id", TRANSFORMATION_ID)
                 .put("name", "testTransformation");
@@ -320,7 +320,9 @@ public class TestSuite {
         postJsonObject(PATH_IMPORT_JOBS, importJob);
         getRecords(PATH_IMPORT_JOBS)
                 .body("totalRecords", is(1));
-
+        deleteRecord(PATH_IMPORT_JOBS, IMPORT_JOB_ID);
+        getRecords(PATH_IMPORT_JOBS)
+                .body("totalRecords", is(0));
     }
 
     @Test
@@ -368,6 +370,16 @@ public class TestSuite {
     }
 
     @Test
+    public void canPostFailedRecords() {
+        postJsonObject(PATH_TRANSFORMATIONS, TRANSFORMATION_JSON);
+        postJsonObject(PATH_IMPORT_CONFIGS, IMPORT_CONFIG_JSON);
+        postJsonObject(PATH_IMPORT_JOBS, IMPORT_JOB_JSON);
+        postJsonObject(PATH_IMPORT_JOBS + "/" + IMPORT_JOB_JSON.getString("id") + "/failed-records", FAILED_RECORDS_JSON);
+        getRecords(PATH_IMPORT_JOBS + "/" + IMPORT_JOB_JSON.getString("id") + "/failed-records")
+                .body("totalRecords", is(5));
+    }
+
+    @Test
     public void canImportTransformedXml() {
         JsonObject transformation = new JsonObject();
         transformation.put("id", TRANSFORMATION_ID)
@@ -378,7 +390,7 @@ public class TestSuite {
         step.put("id", STEP_ID)
                 .put("name", "test step")
                 .put("enabled", true)
-                .put("script", COPY_XML_DOC_XSLT);
+                .put("script", SampleFiles.COPY_XML_DOC_XSLT);
         postJsonObject(PATH_STEPS, step);
 
         JsonObject tsa = new JsonObject();
@@ -398,13 +410,15 @@ public class TestSuite {
 
         getRecordById(PATH_IMPORT_CONFIGS, IMPORT_CONFIG_ID);
         getRecordById(PATH_TRANSFORMATIONS, TRANSFORMATION_ID);
-        postSourceXml(BASE_PATH_IMPORT_XML_FILE + "/" + IMPORT_CONFIG_ID + "/import", Samples.INVENTORY_RECORD_SET_XML);
+        postSourceXml(BASE_PATH_IMPORT_XML_FILE + "/" + IMPORT_CONFIG_ID + "/import", INVENTORY_RECORD_SET_XML);
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + IMPORT_JOB_ID + "/log"), is(4));
     }
+    
+    
 
     @Test
     public void willPurgeAgedJobLogsUsingDefaultThreshold() {
@@ -954,6 +968,16 @@ public class TestSuite {
                 .header(OKAPI_TENANT)
                 .header(OKAPI_URL)
                 .get(api + "/" + id)
+                .then()
+                .statusCode(200);
+    }
+
+    ValidatableResponse deleteRecord(String api, String id) {
+        return given()
+                .baseUri(BASE_URI_INVENTORY_IMPORT)
+                .header(OKAPI_TENANT)
+                .header(OKAPI_URL)
+                .delete(api + "/" + id)
                 .then()
                 .statusCode(200);
     }

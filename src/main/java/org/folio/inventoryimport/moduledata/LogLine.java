@@ -145,7 +145,7 @@ public class LogLine extends Entity {
                 + "("
                 + dbColumnName(ID) + " UUID PRIMARY KEY, "
                 + dbColumnName(IMPORT_JOB_ID) + " UUID NOT NULL "
-                + " REFERENCES " + pool.getSchema() + "." + Tables.import_job + " (" + new ImportJobLog().dbColumnName(ID) + "), "
+                + " REFERENCES " + pool.getSchema() + "." + Tables.import_job + " (" + new ImportJob().dbColumnName(ID) + "), "
                 + dbColumnName(TIME_STAMP) + " TIMESTAMP NOT NULL, "
                 + dbColumnName(JOB_LABEL) + " TEXT NOT NULL, "
                 + dbColumnName(LOG_STATEMENT) + " TEXT NOT NULL"

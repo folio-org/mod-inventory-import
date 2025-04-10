@@ -62,12 +62,15 @@
           "methods": ["POST"],
           "pathPattern": "/inventory-import/import-jobs/{id}/failed-records",
           "permissionsRequired": ["inventory-import.import-jobs.failed-records.collection.post"]
-        },
-        {
+        },{
+          "methods": ["DELETE"],
+          "pathPattern": "/inventory-import/failed-records/{id}",
+          "permissionsRequired": []
+        },{
           "methods": ["POST"],
           "pathPattern": "/inventory-import/import-configs",
           "permissionsRequired": []
-        }, {
+        },{
           "methods": ["GET"],
           "pathPattern": "/inventory-import/import-configs",
           "permissionsRequired": []

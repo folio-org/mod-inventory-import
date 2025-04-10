@@ -18,7 +18,7 @@ public class DatabaseInit {
         return create(new Step(), pool)
                 .compose(na -> create(new Transformation(), pool))
                 .compose(na -> create(new ImportConfig(), pool))
-                .compose(na -> create(new ImportJobLog(), pool))
+                .compose(na -> create(new ImportJob(), pool))
                 .compose(na -> create(new RecordFailure(), pool))
                 .compose(na -> create(new LogLine(), pool))
                 .compose(na -> create(new TransformationStep(), pool))
