@@ -18,7 +18,8 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import org.folio.inventoryimport.MainVerticle;
 import org.folio.inventoryimport.service.fileimport.FileQueue;
 import org.folio.inventoryimport.test.fakestorage.FakeFolioApis;
-import org.folio.inventoryimport.test.fixtures.SampleFiles;
+import org.folio.inventoryimport.test.fixtures.Files;
+import org.folio.inventoryimport.test.fixtures.Service;
 import org.folio.inventoryimport.utils.SettableClock;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.tlib.postgres.testing.TenantPgPoolContainer;
@@ -35,33 +36,23 @@ import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.awaitility.Awaitility.await;
-import static org.folio.inventoryimport.test.Statics.*;
-import static org.folio.inventoryimport.test.fixtures.SampleFiles.*;
+import static org.folio.inventoryimport.test.fixtures.Service.*;
+import static org.folio.inventoryimport.test.fixtures.Files.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
 @RunWith(VertxUnitRunner.class)
 public class UnitTests {
     public static final Logger logger = LoggerFactory.getLogger(UnitTests.class);
-
     static Vertx vertx;
-
     private static FakeFolioApis fakeFolioApis;
-    static final String TENANT = "import_test";
-    public static final Header OKAPI_TENANT = new Header(XOkapiHeaders.TENANT, TENANT);
-    public static final Header OKAPI_URL = new Header(XOkapiHeaders.URL, BASE_URI_OKAPI);
-    public static final Header OKAPI_TOKEN = new Header(XOkapiHeaders.TOKEN, "eyJhbGciOiJIUzUxMiJ9eyJzdWIiOiJhZG1pbiIsInVzZXJfaWQiOiI3OWZmMmE4Yi1kOWMzLTViMzktYWQ0YS0wYTg0MDI1YWIwODUiLCJ0ZW5hbnQiOiJ0ZXN0X3RlbmFudCJ9BShwfHcNClt5ZXJ8ImQTMQtAM1sQEnhsfWNmXGsYVDpuaDN3RVQ9");
+    public static final Header CONTENT_TYPE_XML = new Header("Content-Type", "application/xml");
+    public static final Header CONTENT_TYPE_JSON = new Header("Content-Type", "application/json");
     public static final String TRANSFORMATION_ID = "caf7dbe7-0cfc-4343-b1db-04671ac3e40a";
     public static final String IMPORT_CONFIG_ID = "9ac8c174-fdd3-4380-a2f9-135b33df9795";
     public static final String IMPORT_CONFIG_NAME = "test config";
     public static final String IMPORT_JOB_ID = "cda450e1-46bf-4bb9-9741-876ec395d5e9";
     public static final String STEP_ID = "66d5ef34-ee3d-434c-a07d-80dbfdb31b6e";
-    public static final String PATH_TRANSFORMATIONS = "inventory-import/transformations";
-    public static final String PATH_STEPS = "inventory-import/steps";
-    public static final String PATH_TSAS = "inventory-import/tsas";
-    public static final String PATH_IMPORT_CONFIGS = "inventory-import/import-configs";
-    public static final String PATH_IMPORT_JOBS = "inventory-import/import-jobs";
-    public static final String BASE_PATH_IMPORT_XML_FILE = "inventory-import/import-configs/xml-bulk";
 
     @ClassRule
     public static PostgreSQLContainer<?> postgresSQLContainer = TenantPgPoolContainer.create();
@@ -74,11 +65,11 @@ public class UnitTests {
     public static void beforeClass(TestContext context) {
         vertx = Vertx.vertx();
         RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-        RestAssured.baseURI = Statics.BASE_URI_INVENTORY_IMPORT;
+        RestAssured.baseURI = Service.BASE_URI_INVENTORY_IMPORT;
         RestAssured.requestSpecification = new RequestSpecBuilder().build();
 
         DeploymentOptions deploymentOptions = new DeploymentOptions();
-        deploymentOptions.setConfig(new JsonObject().put("port", Integer.toString(Statics.PORT_INVENTORY_IMPORT)));
+        deploymentOptions.setConfig(new JsonObject().put("port", Integer.toString(Service.PORT_INVENTORY_IMPORT)));
         vertx.deployVerticle(new MainVerticle(), deploymentOptions)
                 .onComplete(context.asyncAssertSuccess(x ->
                         fakeFolioApis = new FakeFolioApis(vertx, context)));
@@ -149,12 +140,11 @@ public class UnitTests {
     
     @Test
     public void canPostAndGetTransformation() {
-        JsonObject transformation = new JsonObject();
-        transformation.put("id", TRANSFORMATION_ID)
-               .put("name", "testTransformation");
+        JsonObject transformation = JSON_TRANSFORMATION;
+        String id = transformation.getString("id");
 
-        postJsonObject(PATH_TRANSFORMATIONS, transformation);
-        getRecordById(PATH_TRANSFORMATIONS, TRANSFORMATION_ID);
+        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION);
+        getRecordById(PATH_TRANSFORMATIONS, id);
         assertThat(getRecords(PATH_TRANSFORMATIONS).extract().path("totalRecords"), is(1));
     }
 
@@ -164,12 +154,12 @@ public class UnitTests {
         step.put("id", STEP_ID)
                 .put("name", "test step")
                 .put("enabled", true)
-                .put("script", SampleFiles.COPY_XML_DOC_XSLT);
+                .put("script", Files.XSLT_COPY_XML_DOC);
 
         postJsonObject(PATH_STEPS, step);
         getRecordById(PATH_STEPS, STEP_ID).extract().response().getBody().prettyPrint();
         assertThat(getRecords(PATH_STEPS).extract().path("totalRecords"), is(1));
-        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(SampleFiles.COPY_XML_DOC_XSLT));
+        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(Files.XSLT_COPY_XML_DOC));
     }
 
     @Test
@@ -178,7 +168,7 @@ public class UnitTests {
         step.put("id", STEP_ID)
                 .put("name", "test step")
                 .put("enabled", true)
-                .put("script", SampleFiles.INVALID_XSLT);
+                .put("script", Files.XSLT_INVALID);
 
         given()
                 .baseUri(BASE_URI_INVENTORY_IMPORT)
@@ -197,12 +187,12 @@ public class UnitTests {
         step.put("id", STEP_ID)
                 .put("name", "test step")
                 .put("enabled", true)
-                .put("script", EMPTY_XSLT);
+                .put("script", XSLT_EMPTY);
         postJsonObject(PATH_STEPS, step);
         getRecordById(PATH_STEPS, STEP_ID).extract().response().getBody().prettyPrint();
-        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(EMPTY_XSLT));
-        putXml(PATH_STEPS + "/" + STEP_ID + "/script", SampleFiles.COPY_XML_DOC_XSLT);
-        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(SampleFiles.COPY_XML_DOC_XSLT));
+        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(XSLT_EMPTY));
+        putXml(PATH_STEPS + "/" + STEP_ID + "/script", Files.XSLT_COPY_XML_DOC);
+        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(Files.XSLT_COPY_XML_DOC));
     }
 
     @Test
@@ -211,13 +201,13 @@ public class UnitTests {
         step.put("id", STEP_ID)
                 .put("name", "test step")
                 .put("enabled", true)
-                .put("script", EMPTY_XSLT);
+                .put("script", XSLT_EMPTY);
 
         given()
                 .baseUri(BASE_URI_INVENTORY_IMPORT)
                 .header(OKAPI_TENANT)
                 .header(OKAPI_URL)
-                .body(SampleFiles.INVALID_XSLT)
+                .body(Files.XSLT_INVALID)
                 .header(CONTENT_TYPE_XML)
                 .put(PATH_STEPS + "/" + STEP_ID + "/script")
                 .then()
@@ -230,7 +220,7 @@ public class UnitTests {
                 .baseUri(BASE_URI_INVENTORY_IMPORT)
                 .header(OKAPI_TENANT)
                 .header(OKAPI_URL)
-                .body(EMPTY_XSLT)
+                .body(XSLT_EMPTY)
                 .header(CONTENT_TYPE_XML)
                 .put(PATH_STEPS + "/" + STEP_ID + "/script")
                 .then()
@@ -256,166 +246,104 @@ public class UnitTests {
         step.put("id", STEP_ID)
                 .put("name", "test step")
                 .put("enabled", true)
-                .put("script", SampleFiles.COPY_XML_DOC_XSLT);
+                .put("script", Files.XSLT_COPY_XML_DOC);
         postJsonObject(PATH_STEPS, step);
 
-        JsonObject transformation = new JsonObject();
-        transformation.put("id", TRANSFORMATION_ID)
-                .put("name", "testTransformation");
-        postJsonObject(PATH_TRANSFORMATIONS, transformation);
+        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION);
 
         JsonObject tsa = new JsonObject();
         tsa.put("stepId", STEP_ID)
-                .put("transformationId", TRANSFORMATION_ID)
+                .put("transformationId", JSON_TRANSFORMATION.getString("id"))
                 .put("position", "1");
         postJsonObject(PATH_TSAS, tsa);
 
-        getRecords(PATH_TSAS+"?query=transformationId="+TRANSFORMATION_ID).body("totalRecords" , is(1));
+        getRecords(PATH_TSAS+"?query=transformationId="+ JSON_TRANSFORMATION.getString("id"))
+                .body("totalRecords" , is(1));
 
     }
 
     @Test
     public void canPostAndGetImportConfig() {
-        JsonObject transformation = new JsonObject();
-        transformation.put("id", TRANSFORMATION_ID)
-                .put("name", "testTransformation");
-        postJsonObject(PATH_TRANSFORMATIONS, transformation);
-
-        JsonObject importConfig = new JsonObject();
-        importConfig
-                .put("name", IMPORT_CONFIG_NAME)
-                .put("type", "XML-BULK")
-                .put("url", "NA")
-                .put("transformationId", TRANSFORMATION_ID);
-
-        postJsonObject(PATH_IMPORT_CONFIGS, importConfig);
+        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION);
+        postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
         getRecords(PATH_IMPORT_CONFIGS)
                 .body("totalRecords", is(1));
     }
 
     @Test
     public void canPostAndGetAndDeleteImportJob() {
-        JsonObject transformation = new JsonObject();
-        transformation.put("id", TRANSFORMATION_ID)
-                .put("name", "testTransformation");
-        postJsonObject(PATH_TRANSFORMATIONS, transformation);
-
-        JsonObject importConfig = new JsonObject();
-        importConfig
-                .put("id", IMPORT_CONFIG_ID)
-                .put("name", "test config")
-                .put("type", "XML-BULK")
-                .put("url", "NA")
-                .put("transformationId", TRANSFORMATION_ID);
-
-        postJsonObject(PATH_IMPORT_CONFIGS, importConfig);
-
-        JsonObject importJob = new JsonObject();
-        importJob
-                .put("id", IMPORT_JOB_ID)
-                .put("importConfigName", IMPORT_CONFIG_NAME)
-                .put("importConfigId", IMPORT_CONFIG_ID)
-                .put("started", "2024-01-01T01:01:01")
-                .put("amountHarvested", 0);
-        postJsonObject(PATH_IMPORT_JOBS, importJob);
-        getRecords(PATH_IMPORT_JOBS)
-                .body("totalRecords", is(1));
-        deleteRecord(PATH_IMPORT_JOBS, IMPORT_JOB_ID);
-        getRecords(PATH_IMPORT_JOBS)
-                .body("totalRecords", is(0));
+        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION);
+        postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
+        postJsonObject(PATH_IMPORT_JOBS, JSON_IMPORT_JOB);
+        getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(1));
+        deleteRecord(PATH_IMPORT_JOBS, JSON_IMPORT_JOB.getString("id"));
+        getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(0));
     }
 
     @Test
     public void canPostLogLines() {
-        JsonObject transformation = new JsonObject();
-        transformation.put("id", TRANSFORMATION_ID)
-                .put("name", "testTransformation");
-        postJsonObject(PATH_TRANSFORMATIONS, transformation);
+        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION);
+        postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
+        postJsonObject(PATH_IMPORT_JOBS, JSON_IMPORT_JOB);
 
-        JsonObject importConfig = new JsonObject();
-        importConfig
-                .put("id", IMPORT_CONFIG_ID)
-                .put("name", "test config")
-                .put("type", "XML-BULK")
-                .put("url", "NA")
-                .put("transformationId", TRANSFORMATION_ID);
-
-        postJsonObject(PATH_IMPORT_CONFIGS, importConfig);
-
-        JsonObject importJob = new JsonObject();
-        importJob
-                .put("id", IMPORT_JOB_ID)
-                .put("importConfigName", IMPORT_CONFIG_NAME)
-                .put("importConfigId", IMPORT_CONFIG_ID)
-                .put("started", "2024-01-01T01:01:01")
-                .put("amountHarvested", 0);
-        postJsonObject(PATH_IMPORT_JOBS, importJob);
+        String importJobId = JSON_IMPORT_JOB.getString("id");
+        String importConfigName = JSON_IMPORT_CONFIG.getString("name");
 
         JsonArray logLines = new JsonArray();
         logLines.add(new JsonObject()
-                .put("importJobId", IMPORT_JOB_ID)
+                .put("importJobId", importJobId)
                 .put("timeStamp", SettableClock.getLocalDateTime().toString())
-                .put("jobLabel", IMPORT_CONFIG_NAME)
+                .put("jobLabel", importConfigName)
                 .put("line", "log line 1"));
         logLines.add(new JsonObject()
-                .put("importJobId", IMPORT_JOB_ID)
+                .put("importJobId", importJobId)
                 .put("timeStamp", SettableClock.getLocalDateTime().toString())
-                .put("jobLabel", IMPORT_CONFIG_NAME)
+                .put("jobLabel", importConfigName)
                 .put("line", "log line 2"));
         JsonObject request = new JsonObject().put("logLines", logLines);
-        postJsonObject(PATH_IMPORT_JOBS+"/"+IMPORT_JOB_ID+"/log", request);
-
-        getRecords(PATH_IMPORT_JOBS + "/" + IMPORT_JOB_ID + "/log")
+        postJsonObject(PATH_IMPORT_JOBS+"/"+importJobId+"/log", request);
+        getRecords(PATH_IMPORT_JOBS + "/" + importJobId + "/log")
                 .body("totalRecords", is(2));
     }
 
     @Test
     public void canPostFailedRecords() {
-        postJsonObject(PATH_TRANSFORMATIONS, TRANSFORMATION_JSON);
-        postJsonObject(PATH_IMPORT_CONFIGS, IMPORT_CONFIG_JSON);
-        postJsonObject(PATH_IMPORT_JOBS, IMPORT_JOB_JSON);
-        postJsonObject(PATH_IMPORT_JOBS + "/" + IMPORT_JOB_JSON.getString("id") + "/failed-records", FAILED_RECORDS_JSON);
-        getRecords(PATH_IMPORT_JOBS + "/" + IMPORT_JOB_JSON.getString("id") + "/failed-records")
+        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION);
+        postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
+        postJsonObject(PATH_IMPORT_JOBS, JSON_IMPORT_JOB);
+        postJsonObject(PATH_IMPORT_JOBS + "/" + JSON_IMPORT_JOB.getString("id") + "/failed-records", JSON_FAILED_RECORDS);
+        getRecords(PATH_IMPORT_JOBS + "/" + JSON_IMPORT_JOB.getString("id") + "/failed-records")
                 .body("totalRecords", is(5));
     }
 
     @Test
     public void canImportTransformedXml() {
-        JsonObject transformation = new JsonObject();
-        transformation.put("id", TRANSFORMATION_ID)
-                .put("name", "testTransformation");
-        postJsonObject(PATH_TRANSFORMATIONS, transformation);
+        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION);
 
         JsonObject step = new JsonObject();
         step.put("id", STEP_ID)
                 .put("name", "test step")
                 .put("enabled", true)
-                .put("script", SampleFiles.COPY_XML_DOC_XSLT);
+                .put("script", Files.XSLT_COPY_XML_DOC);
         postJsonObject(PATH_STEPS, step);
-
         JsonObject tsa = new JsonObject();
         tsa.put("stepId", STEP_ID)
-                .put("transformationId", TRANSFORMATION_ID)
+                .put("transformationId", JSON_TRANSFORMATION.getString("id"))
                 .put("position", "1");
         postJsonObject(PATH_TSAS, tsa);
+        postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
 
-        JsonObject importConfig = new JsonObject();
-        importConfig
-                .put("id", IMPORT_CONFIG_ID)
-                .put("name", IMPORT_CONFIG_NAME)
-                .put("type", "XML-BULK")
-                .put("url", "NA")
-                .put("transformationId", TRANSFORMATION_ID);
-        postJsonObject(PATH_IMPORT_CONFIGS, importConfig);
+        String importConfigId = JSON_IMPORT_CONFIG.getString("id");
+        String transformationId = JSON_TRANSFORMATION.getString("id");
 
-        getRecordById(PATH_IMPORT_CONFIGS, IMPORT_CONFIG_ID);
-        getRecordById(PATH_TRANSFORMATIONS, TRANSFORMATION_ID);
-        postSourceXml(BASE_PATH_IMPORT_XML_FILE + "/" + IMPORT_CONFIG_ID + "/import", INVENTORY_RECORD_SET_XML);
+        getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
+        getRecordById(PATH_TRANSFORMATIONS, transformationId);
+        postSourceXml(BASE_PATH_IMPORT_XML_FILE + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET);
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
-        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + IMPORT_JOB_ID + "/log"), is(4));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
     }
     
     
@@ -545,7 +473,7 @@ public class UnitTests {
         final RequestSpecification timeoutConfig = timeoutConfig(10000);
 
         given()
-                .port(Statics.PORT_OKAPI)
+                .port(Service.PORT_OKAPI)
                 .header(OKAPI_TENANT)
                 .header(OKAPI_URL)
                 .header(OKAPI_TOKEN)
@@ -713,8 +641,8 @@ public class UnitTests {
 
         Response response3 = RestAssured
                 .given()
-                .baseUri("http://localhost:" + Statics.PORT_OKAPI)
-                .port(Statics.PORT_OKAPI)
+                .baseUri("http://localhost:" + Service.PORT_OKAPI)
+                .port(Service.PORT_OKAPI)
                 .header(OKAPI_TENANT)
                 .contentType(ContentType.JSON)
                 .get("settings/entries")
@@ -727,10 +655,10 @@ public class UnitTests {
         final RequestSpecification timeoutConfig = timeoutConfig(10000);
 
         given()
-                .port(Statics.PORT_OKAPI)
+                .port(Service.PORT_OKAPI)
                 .header(OKAPI_TENANT)
-                .header(Statics.OKAPI_URL)
-                .header(Statics.OKAPI_TOKEN)
+                .header(Service.OKAPI_URL)
+                .header(Service.OKAPI_TOKEN)
                 .contentType(ContentType.JSON)
                 .header(XOkapiHeaders.REQUEST_ID, "purge-aged-logs")
                 .spec(timeoutConfig)
@@ -757,7 +685,7 @@ public class UnitTests {
                 .log().ifValidationFails().statusCode(200).extract().response();
         logger.info("will purge jobs response: " + response.asPrettyString());
 
-        given().port(Statics.PORT_INVENTORY_IMPORT)
+        given().port(Service.PORT_INVENTORY_IMPORT)
                 .header(OKAPI_TENANT)
                 .get("inventory-import/import-jobs")
                 .then()
@@ -853,21 +781,21 @@ public class UnitTests {
                                 "      \"message\" : \"  Instances_processed/loaded/deletions(signals)/failed:__3___3___0(0)___0_ Holdings_records_processed/loaded/deleted/failed:__8___8___0___0_ Items_processed/loaded/deleted/failed:__2___2___0___0_ Source_records_processed/loaded/deleted/failed:__0___0___0___0_\"\n" +
                                 "    }\n");
 
-        given().port(Statics.PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
+        given().port(Service.PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
                 .body(agedJobJson.encode())
                 .contentType(ContentType.JSON)
                 .post("inventory-import/import-jobs")
                 .then()
                 .log().ifValidationFails().statusCode(201).extract().response();
 
-        given().port(Statics.PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
+        given().port(Service.PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
                 .body(intermediateJobJson.encode())
                 .contentType(ContentType.JSON)
                 .post("inventory-import/import-jobs")
                 .then()
                 .log().ifValidationFails().statusCode(201).extract().response();
 
-        given().port(Statics.PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
+        given().port(Service.PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
                 .body(newerJobJson.encode())
                 .contentType(ContentType.JSON)
                 .post("inventory-import/import-jobs")
@@ -876,7 +804,7 @@ public class UnitTests {
 
         RestAssured
                 .given()
-                .port(Statics.PORT_INVENTORY_IMPORT)
+                .port(Service.PORT_INVENTORY_IMPORT)
                 .header(OKAPI_TENANT)
                 .contentType(ContentType.JSON)
                 .get("inventory-import/import-jobs")
@@ -891,8 +819,8 @@ public class UnitTests {
 
         RestAssured
                 .given()
-                .baseUri("http://localhost:" + Statics.PORT_OKAPI)
-                .port(Statics.PORT_OKAPI)
+                .baseUri("http://localhost:" + Service.PORT_OKAPI)
+                .port(Service.PORT_OKAPI)
                 .header(OKAPI_TENANT)
                 .contentType(ContentType.JSON)
                 .get("configurations/entries")
@@ -903,10 +831,10 @@ public class UnitTests {
         final RequestSpecification timeoutConfig = timeoutConfig(10000);
 
         given()
-                .port(Statics.PORT_OKAPI)
+                .port(Service.PORT_OKAPI)
                 .header(OKAPI_TENANT)
-                .header(Statics.OKAPI_URL)
-                .header(Statics.OKAPI_TOKEN)
+                .header(Service.OKAPI_URL)
+                .header(Service.OKAPI_TOKEN)
                 .contentType(ContentType.JSON)
                 .header(XOkapiHeaders.REQUEST_ID, "purge-aged-logs")
                 .spec(timeoutConfig)
@@ -916,7 +844,7 @@ public class UnitTests {
 
         RestAssured
                 .given()
-                .port(Statics.PORT_INVENTORY_IMPORT)
+                .port(Service.PORT_INVENTORY_IMPORT)
                 .header(OKAPI_TENANT)
                 .contentType(ContentType.JSON)
                 .get("inventory-import/import-jobs")
@@ -943,7 +871,7 @@ public class UnitTests {
                 .header(OKAPI_TENANT)
                 .header(OKAPI_URL)
                 .body(body)
-                .header(Statics.CONTENT_TYPE_XML)
+                .header(CONTENT_TYPE_XML)
                 .put(api)
                 .then()
                 .statusCode(204);

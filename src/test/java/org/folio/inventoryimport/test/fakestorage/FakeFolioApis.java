@@ -12,7 +12,7 @@ import org.folio.inventoryimport.foliodata.ConfigurationsClient;
 import org.folio.inventoryimport.foliodata.InventoryUpdateClient;
 import org.folio.inventoryimport.foliodata.SettingsClient;
 
-import static org.folio.inventoryimport.test.Statics.*;
+import static org.folio.inventoryimport.test.fixtures.Service.*;
 
 
 public class FakeFolioApis {
