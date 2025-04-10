@@ -91,8 +91,8 @@ public class ModuleStorageAccess {
                         entity.makeInsertTemplate(pool.getSchema()))
                 .mapFrom(entity.getTupleMapper())
                 .execute(entity)
-                .onSuccess(res -> logger.info("Created " + entity.entityName().toLowerCase() + "."))
-                .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage()))
+                .onSuccess(res -> logger.info("Created " + entity.entityName().toLowerCase() + ". ID [" + entity.asJson().getString("id") + "]"))
+                .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage() + " " + entity.asJson()))
                 .map(UUID.fromString(entity.asJson().getString("id")));
     }
 
