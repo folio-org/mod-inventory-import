@@ -233,7 +233,7 @@ paths:
         - in: query
           name: query
           required: false
-          description: CQL query, import config ID, name, type, status, message, and amountHarvested in queries, and the same fields plus started and finished in sorting
+          description: CQL query, import config ID, name, type, status, message, and amount imported in queries, and the same fields plus started and finished in sorting
           schema:
             type: string
         - in: query
@@ -371,6 +371,101 @@ paths:
         "500":
           $ref: "#/components/responses/trait_500"
 
+  /inventory-import/import-jobs/{id}/failed-records:
+    parameters:
+      - $ref: headers/okapi-tenant.yaml
+      - $ref: headers/okapi-token.yaml
+      - $ref: headers/okapi-url.yaml
+      - in: path
+        name: id
+        required: true
+        description: Import job identifier
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getFailedRecordsForJob
+      description: Retrieves the failed records of an import job
+      parameters:
+        - in: query
+          name: query
+          required: false
+          description: CQL query
+          schema:
+            type: string
+        - in: query
+          name: from
+          required: false
+          description: date range parameter on error report timestamp
+          schema:
+            type: string
+        - in: query
+          name: until
+          required: false
+          description: date range parameter on error report timestamp
+          schema:
+            type: string
+        - in: query
+          name: offset
+          required: false
+          description: result set start row
+          schema:
+            type: string
+        - in: query
+          name: limit
+          required: false
+          description: result set max rows
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of failed records for an import job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/failedRecords"
+
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "404":
+          $ref: "#/components/responses/trait_404"
+        "500":
+          $ref: "#/components/responses/trait_500"
+
+    post:
+      description: Create failed record samples without running a job, for example to import from another FOLIO instance.
+      operationId: postFailedRecordsForJob
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/failedRecords"
+        required: true
+      responses:
+        "201":
+          description: Failed record entries created
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "500":
+          $ref: "#/components/responses/trait_500"
+
+  /inventory-import/failed-records/{id}:
+    parameters:
+      - $ref: headers/okapi-tenant.yaml
+      - $ref: headers/okapi-token.yaml
+      - $ref: headers/okapi-url.yaml
+    delete:
+      operationId: deleteRecordFailure
+      description: Delete a past import job with all its logs
+      responses:
+        "200":
+          description: Record failure deleted
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "404":
+          $ref: "#/components/responses/trait_404"
+        "500":
+          $ref: "#/components/responses/trait_500"
 
   /inventory-import/steps:
     parameters:
@@ -824,6 +919,10 @@ components:
       $ref: schemas/transformationStepAssociations.json
     logLines:
       $ref: schemas/logLines.json
+    failedRecord:
+      $ref: schemas/failedRecord.json
+    failedRecords:
+      $ref: schemas/failedRecords.json
     importConfigPostPut:
       $ref: schemas/importConfigPostPut.json
     importConfigGet:

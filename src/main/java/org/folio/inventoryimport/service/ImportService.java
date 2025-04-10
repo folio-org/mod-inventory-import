@@ -10,6 +10,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.openapi.RouterBuilder;
+import io.vertx.ext.web.validation.RequestParameter;
 import io.vertx.ext.web.validation.RequestParameters;
 import io.vertx.ext.web.validation.ValidationHandler;
 import org.apache.logging.log4j.LogManager;
@@ -73,15 +74,18 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         handler(vertx, routerBuilder, "getTsas", this::getTransformationSteps);
         handler(vertx, routerBuilder, "getTsa", this::getTransformationStepById);
         handler(vertx, routerBuilder, "postTsa", this::postTransformationStep);
-
-        // Logging tables
+        // Jobs
         handler(vertx, routerBuilder, "getImportJobs", this::getImportJobs);
         handler(vertx, routerBuilder, "getImportJob", this::getImportJobById);
         handler(vertx, routerBuilder, "postImportJob", this::postImportJob);
+        handler(vertx, routerBuilder, "deleteImportJob", this::deleteImportJob);
         handler(vertx, routerBuilder, "postImportJobLogLines", this::postLogStatements);
         handler(vertx, routerBuilder, "getImportJobLogLines", this::getLogStatements);
-        handler(vertx, routerBuilder, "purgeAgedLogs", this::purgeAgedLogs);
+        handler(vertx, routerBuilder, "getFailedRecordsForJob", this::getFailedRecords);
+        handler(vertx, routerBuilder, "postFailedRecordsForJob", this::postFailedRecordsForJob);
+        handler(vertx, routerBuilder, "deleteRecordFailure", this::deleteRecordFailure);
         // Process
+        handler(vertx, routerBuilder, "purgeAgedLogs", this::purgeAgedLogs);
         handler(vertx, routerBuilder,"importXmlRecords", this::stageXmlSourceFile);
         handler(vertx, routerBuilder,"startImportVerticle", this::ensureRunningImportVerticle);
         handler(vertx, routerBuilder, "stopImportVerticle", this::ensureStoppedImportVerticle);
@@ -150,11 +154,11 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         ).mapEmpty();
     }
 
-    private Future<Void> getEntityById(Vertx vertx, RoutingContext routingContext, Entity entity) {
+    private Future<Void> getEntity(Vertx vertx, RoutingContext routingContext, Entity entity) {
         String tenant = TenantUtil.tenant(routingContext);
         RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
         UUID id = UUID.fromString(params.pathParameter("id").getString());
-        return new ModuleStorageAccess(vertx, tenant).getEntityById(id, entity)
+        return new ModuleStorageAccess(vertx, tenant).getEntity(id, entity)
                 .onSuccess(instance -> {
                     if (instance == null) {
                         responseText(routingContext, 404).end(entity.entityName() + " " + id + " not found.");
@@ -165,6 +169,19 @@ public class ImportService implements RouterCreator, TenantInitHooks {
                 .mapEmpty();
     }
 
+
+    private Future<Void> deleteEntity(Vertx vertx, RoutingContext routingContext, Entity entity) {
+        String tenant = TenantUtil.tenant(routingContext);
+        RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
+        UUID id = UUID.fromString(params.pathParameter("id").getString());
+        return new ModuleStorageAccess(vertx, tenant).deleteEntity(id, entity).
+                  onSuccess(done-> responseText(routingContext, 200)
+                          .end(done == 0 ?
+                                  entity.entityName() + " with ID " + id + " not found."
+                                  :
+                                  "Deleted." ))
+                .mapEmpty();
+    }
 
     private Future<Void> postImportConfig(Vertx vertx, RoutingContext routingContext) {
         String tenant = TenantUtil.tenant(routingContext);
@@ -180,15 +197,15 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> getImportConfigById(Vertx vertx, RoutingContext routingContext) {
-        return getEntityById(vertx, routingContext, new ImportConfig());
+        return getEntity(vertx, routingContext, new ImportConfig());
     }
 
     private Future<Void> postImportJob(Vertx vertx, RoutingContext routingContext) {
         String tenant = TenantUtil.tenant(routingContext);
-        ImportJobLog importJobLog = new ImportJobLog().fromJson(routingContext.body().asJsonObject());
-        return new ModuleStorageAccess(vertx, tenant).storeEntity(importJobLog)
+        ImportJob importJob = new ImportJob().fromJson(routingContext.body().asJsonObject());
+        return new ModuleStorageAccess(vertx, tenant).storeEntity(importJob)
                 .onSuccess(configId ->
-                        responseJson(routingContext, 201).end(importJobLog.asJson().encodePrettily()))
+                        responseJson(routingContext, 201).end(importJob.asJson().encodePrettily()))
                 .mapEmpty();
     }
 
@@ -209,7 +226,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
 
         SqlQuery query;
         try {
-            query = new ImportJobLog()
+            query = new ImportJob()
                     .makeSqlFromCqlQuery(routingContext, moduleStorage.schemaDotTable(Tables.import_job))
                     .withAdditionalWhereClause(timeRange);
         } catch (PgCqlException pce) {
@@ -219,7 +236,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         } catch (Exception e) {
             return Future.failedFuture(e.getMessage());
         }
-        return moduleStorage.getEntities(query.getQueryWithLimits(), new ImportJobLog()).onComplete(
+        return moduleStorage.getEntities(query.getQueryWithLimits(), new ImportJob()).onComplete(
                 jobsList -> {
                     if (jobsList.succeeded()) {
                         JsonObject responseJson = new JsonObject();
@@ -244,7 +261,11 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> getImportJobById(Vertx vertx, RoutingContext routingContext) {
-        return getEntityById(vertx, routingContext, new ImportJobLog());
+        return getEntity(vertx, routingContext, new ImportJob());
+    }
+
+    private Future<Void> deleteImportJob(Vertx vertx, RoutingContext routingContext) {
+        return deleteEntity(vertx, routingContext, new ImportJob());
     }
 
     private Future<Void> postLogStatements(Vertx vertx, RoutingContext routingContext) {
@@ -264,6 +285,76 @@ public class ImportService implements RouterCreator, TenantInitHooks {
 
     private Future<Void> getLogStatements(Vertx vertx, RoutingContext routingContext) {
         return getEntities(vertx, routingContext, new LogLine());
+    }
+
+    private Future<Void> getFailedRecords(Vertx vertx, RoutingContext routingContext) {
+        String tenant = TenantUtil.tenant(routingContext);
+        ModuleStorageAccess moduleStorage = new ModuleStorageAccess(vertx, tenant);
+
+        SqlQuery queryFromCql = new RecordFailure().makeSqlFromCqlQuery(
+                        routingContext, moduleStorage.schemaDotTable(Tables.record_failure_view))
+                .withDefaultLimit("100");
+        RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
+        RequestParameter jobId = params.pathParameter("id");
+        RequestParameter from = params.queryParameter("from");
+        RequestParameter until = params.queryParameter("until");
+
+        String timeRange = null;
+        if (from != null && until != null) {
+            timeRange = " (time_stamp >= '" + from.getString()
+                    + "'  AND time_stamp <= '" + until.getString() + "') ";
+        } else if (from != null) {
+            timeRange = " time_stamp >= '" + from.getString() + "' ";
+        } else if (until != null) {
+            timeRange = " time_stamp <= '" + until.getString() + "' ";
+        }
+
+        if (jobId != null) {
+            queryFromCql.withAdditionalWhereClause("import_job_id = '" + jobId + "'");
+        }
+        if (timeRange != null) {
+            queryFromCql.withAdditionalWhereClause(timeRange);
+        }
+
+        return moduleStorage.getEntities(queryFromCql.getQueryWithLimits(), new RecordFailure()).onComplete(
+                failuresList -> {
+                    if (failuresList.succeeded()) {
+                        JsonObject responseJson = new JsonObject();
+                        JsonArray recordFailures = new JsonArray();
+                        responseJson.put("failedRecords", recordFailures);
+                        List<Entity> failures = failuresList.result();
+                        for (Entity failure : failures) {
+                            recordFailures.add(failure.asJson());
+                        }
+                        moduleStorage.getCount(queryFromCql.getCountingSql()).onComplete(
+                                count -> {
+                                    responseJson.put("totalRecords", count.result());
+                                    responseJson(routingContext, 200).end(responseJson.encodePrettily());
+                                }
+                        );
+                    }
+                }
+        ).mapEmpty();
+    }
+
+
+    private Future<Void> postFailedRecordsForJob(Vertx vertx, RoutingContext routingContext) {
+        String tenant = TenantUtil.tenant(routingContext);
+        JsonObject body = routingContext.body().asJsonObject();
+        JsonArray recs = body.getJsonArray(new RecordFailure().jsonCollectionName());
+        List<Entity> failedRecs = new ArrayList<>();
+        for (Object o : recs) {
+            failedRecs.add(new RecordFailure().fromJson((JsonObject) o));
+        }
+        return new ModuleStorageAccess(vertx, tenant)
+                .storeEntities(new RecordFailure(), failedRecs)
+                .onSuccess(configId ->
+                        responseJson(routingContext, 201).end(failedRecs.size() + " record failures logged."))
+                .mapEmpty();
+    }
+
+    private Future<Void> deleteRecordFailure(Vertx vertx, RoutingContext routingContext) {
+        return deleteEntity(vertx, routingContext, new RecordFailure());
     }
 
     private Future<Void> purgeAgedLogs(Vertx vertx, RoutingContext routingContext) {
@@ -318,7 +409,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> getStepById(Vertx vertx, RoutingContext routingContext) {
-        return getEntityById(vertx, routingContext, new Step());
+        return getEntity(vertx, routingContext, new Step());
     }
 
     private Future<Void> getScript(Vertx vertx, RoutingContext routingContext) {
@@ -350,7 +441,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> getTransformationById(Vertx vertx, RoutingContext routingContext) {
-        return getEntityById(vertx, routingContext, new Transformation());
+        return getEntity(vertx, routingContext, new Transformation());
     }
 
     private Future<Void> getTransformations(Vertx vertx, RoutingContext routingContext) {
@@ -367,7 +458,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> getTransformationStepById(Vertx vertx, RoutingContext routingContext) {
-        return getEntityById(vertx, routingContext, new TransformationStep());
+        return getEntity(vertx, routingContext, new TransformationStep());
     }
 
     private Future<Void> getTransformationSteps(Vertx vertx, RoutingContext routingContext) {
@@ -398,7 +489,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
 
     private Future<String> ensureRunningImportVerticle(Vertx vertx, String tenant, String importConfigId, RoutingContext routingContext) {
         Promise<String> promise = Promise.promise();
-        new ModuleStorageAccess(vertx, tenant).getEntityById(UUID.fromString(importConfigId), new ImportConfig())
+        new ModuleStorageAccess(vertx, tenant).getEntity(UUID.fromString(importConfigId), new ImportConfig())
                 .onSuccess(cfg -> {
                     if (cfg != null) {
                         XmlFilesImportVerticle

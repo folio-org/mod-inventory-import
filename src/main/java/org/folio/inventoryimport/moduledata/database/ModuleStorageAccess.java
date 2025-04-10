@@ -19,8 +19,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-import static org.folio.inventoryimport.moduledata.ImportJobLog.ID;
-import static org.folio.inventoryimport.moduledata.ImportJobLog.STARTED;
+import static org.folio.inventoryimport.moduledata.ImportJob.ID;
+import static org.folio.inventoryimport.moduledata.ImportJob.STARTED;
 import static org.folio.inventoryimport.moduledata.LogLine.IMPORT_JOB_ID;
 
 
@@ -61,7 +61,7 @@ public class ModuleStorageAccess {
     public Future<String> getScript(RoutingContext routingContext) {
         String id = routingContext.request().getParam("id");
         Promise<String> promise = Promise.promise();
-        getEntityById(UUID.fromString(id), new Step()).onComplete(step -> {
+        getEntity(UUID.fromString(id), new Step()).onComplete(step -> {
             if (step.result() != null) {
                 promise.complete(((Step)step.result()).getLineSeparatedXslt());
             } else {
@@ -75,7 +75,7 @@ public class ModuleStorageAccess {
         String id = routingContext.request().getParam("id");
         String script = routingContext.body().asString();
         Promise<Void> promise = Promise.promise();
-        getEntityById(UUID.fromString(id), new Step()).onComplete(getStep -> {
+        getEntity(UUID.fromString(id), new Step()).onComplete(getStep -> {
             if (getStep.result() != null) {
                 Step step = (Step) getStep.result();
                 step.updateScript(script, this).onSuccess(ignore->promise.complete());
@@ -132,7 +132,7 @@ public class ModuleStorageAccess {
                 }).map(records);
     }
 
-    public Future<Entity> getEntityById(UUID id, Entity definition) {
+    public Future<Entity> getEntity(UUID id, Entity definition) {
         return SqlTemplate.forQuery(pool.getPool(),
                         "SELECT * "
                                 + "FROM " + schemaDotTable(definition.table()) + " "
@@ -143,6 +143,14 @@ public class ModuleStorageAccess {
                     RowIterator<Entity> iterator = rows.iterator();
                     return iterator.hasNext() ? iterator.next() : null;
                 });
+    }
+
+    public Future<Integer> deleteEntity(UUID id, Entity definition) {
+        return SqlTemplate.forUpdate(pool.getPool(),
+                        "DELETE FROM " + schemaDotTable(definition.table()) + " "
+                                + "WHERE id = #{id}")
+                .execute(Collections.singletonMap("id", id))
+                .map(SqlResult::rowCount);
     }
 
     /**
@@ -159,24 +167,24 @@ public class ModuleStorageAccess {
         return SqlTemplate.forUpdate(pool.getPool(),
                         "DELETE FROM " + schemaDotTable(Tables.log_statement)
                                 + " WHERE " +  new LogLine().field(IMPORT_JOB_ID).columnName() +
-                                "    IN (SELECT " + new ImportJobLog().field(ID).columnName() +
+                                "    IN (SELECT " + new ImportJob().field(ID).columnName() +
                                 "        FROM " + schemaDotTable(Tables.import_job) +
-                                "        WHERE " + new ImportJobLog().field(STARTED).columnName() + " < #{untilDate} )")
+                                "        WHERE " + new ImportJob().field(STARTED).columnName() + " < #{untilDate} )")
                 .execute(Collections.singletonMap("untilDate", untilDate))
                 .onComplete(deletedLogs -> {
                     if (deletedLogs.succeeded()) {
                         SqlTemplate.forUpdate(pool.getPool(),
                                         "DELETE FROM " + schemaDotTable(Tables.record_failure)
                                                 + " WHERE " + new RecordFailure().field(IMPORT_JOB_ID).columnName() +
-                                                "    IN (SELECT " + new ImportJobLog().field(ID).columnName() +
+                                                "    IN (SELECT " + new ImportJob().field(ID).columnName() +
                                                 "        FROM " + schemaDotTable(Tables.import_job) +
-                                                "        WHERE " + new ImportJobLog().field(STARTED).columnName() + " < #{untilDate} )")
+                                                "        WHERE " + new ImportJob().field(STARTED).columnName() + " < #{untilDate} )")
                                 .execute(Collections.singletonMap("untilDate", untilDate))
                                 .onComplete(deletedFailedRecords -> {
                                     if (deletedFailedRecords.succeeded()) {
                                         SqlTemplate.forUpdate(pool.getPool(),
                                                         "DELETE FROM " + schemaDotTable(Tables.import_job) +
-                                                                "        WHERE " + new ImportJobLog().field(STARTED).columnName() + " < #{untilDate} ")
+                                                                "        WHERE " + new ImportJob().field(STARTED).columnName() + " < #{untilDate} ")
                                                 .execute(Collections.singletonMap("untilDate", untilDate))
                                                 .onSuccess( result -> {
                                                     logger.info("Timer process purged " + result.rowCount() + " harvest job runs from before " + untilDate);

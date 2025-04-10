@@ -14,28 +14,28 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class ImportJobLog extends Entity {
+public class ImportJob extends Entity {
 
     private static final String DATE_FORMAT = "YYYY-MM-DD''T''HH24:MI:SS,MS";
 
-    public ImportJobLog() {}
+    public ImportJob() {}
 
-    public ImportJobLog(UUID id,
-                        UUID importConfigId,
-                        String importConfigName,
-                        String importType,
-                        String url,
-                        Boolean allowErrors,
-                        Integer recordLimit,
-                        Integer batchSize,
-                        UUID transformation,
-                        UUID storage,
-                        String status,
-                        String started,
-                        String finished,
-                        Integer amountHarvested,
-                        String message) {
-        record = new ImportJobLog.ImportJobRecord(
+    public ImportJob(UUID id,
+                     UUID importConfigId,
+                     String importConfigName,
+                     String importType,
+                     String url,
+                     Boolean allowErrors,
+                     Integer recordLimit,
+                     Integer batchSize,
+                     UUID transformation,
+                     UUID storage,
+                     String status,
+                     String started,
+                     String finished,
+                     Integer amountHarvested,
+                     String message) {
+        record = new ImportJob.ImportJobRecord(
                 id, importConfigId, importConfigName, importType, url, allowErrors, recordLimit, batchSize, transformation, storage, status, started, finished, amountHarvested, message);
     }
 
@@ -101,9 +101,9 @@ public class ImportJobLog extends Entity {
         return FIELDS;
     }
 
-    public ImportJobLog fromImportConfig(ImportConfig importConfig) {
+    public ImportJob fromImportConfig(ImportConfig importConfig) {
         ImportConfig.ImportConfigRecord cfg = importConfig.record;
-        return new ImportJobLog(UUID.randomUUID(), cfg.id(), cfg.name(), cfg.type(), cfg.URL(),
+        return new ImportJob(UUID.randomUUID(), cfg.id(), cfg.name(), cfg.type(), cfg.URL(),
                 cfg.allowErrors(), cfg.recordLimit(), cfg.batchSize(),
                 cfg.transformationId(), cfg.storageId(),
                 "", SettableClock.getLocalDateTime().toString(), "", 0, "");
@@ -116,10 +116,10 @@ public class ImportJobLog extends Entity {
      * @return Entity POJO
      */
     @Override
-    public ImportJobLog fromJson(JsonObject json) {
+    public ImportJob fromJson(JsonObject json) {
         String started = json.getString(jsonPropertyName(STARTED));
         String finished = json.getString(jsonPropertyName(FINISHED));
-        return new ImportJobLog(
+        return new ImportJob(
                 getUuidOrGenerate(json.getString(jsonPropertyName(ID))),
                 UUID.fromString(json.getString(jsonPropertyName(IMPORT_CONFIG_ID))),
                 json.getString(jsonPropertyName(IMPORT_CONFIG_NAME)),
@@ -169,7 +169,7 @@ public class ImportJobLog extends Entity {
      */
     @Override
     public RowMapper<Entity> getRowMapper() {
-        return row -> new ImportJobLog(
+        return row -> new ImportJob(
                 row.getUUID(dbColumnName(ID)),
                 row.getUUID(dbColumnName(IMPORT_CONFIG_ID)),
                 row.getString(dbColumnName(IMPORT_CONFIG_NAME)),
@@ -194,7 +194,7 @@ public class ImportJobLog extends Entity {
     public TupleMapper<Entity> getTupleMapper() {
         return TupleMapper.mapper(
                 entity -> {
-                    ImportJobLog.ImportJobRecord rec = ((ImportJobLog) entity).record;
+                    ImportJob.ImportJobRecord rec = ((ImportJob) entity).record;
                     Map<String, Object> parameters = new HashMap<>();
                     parameters.put(dbColumnName(ID), rec.id);
                     parameters.put(dbColumnName(IMPORT_CONFIG_ID), rec.importConfigId);
@@ -243,7 +243,7 @@ public class ImportJobLog extends Entity {
      */
     @Override
     public String entityName() {
-        return "Import job log";
+        return "Import job";
     }
 
     public String makeInsertTemplate(String schema) {

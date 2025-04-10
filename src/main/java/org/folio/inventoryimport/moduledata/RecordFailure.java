@@ -22,7 +22,7 @@ public class RecordFailure extends Entity {
 
     public RecordFailure(UUID id, UUID importJobId, UUID importConfigId, String importConfigName, String recordNumber,
                          String timeStamp, String originalRecord, JsonArray recordErrors, JsonObject transformedRecord) {
-
+        record = new FailedRecord(id, importJobId, importConfigId, importConfigName, recordNumber, timeStamp, originalRecord, recordErrors, transformedRecord);
     }
     public FailedRecord record;
     public record FailedRecord(UUID id, UUID importJobId, UUID importConfigId, String importConfigName, String recordNumber,
@@ -66,7 +66,7 @@ public class RecordFailure extends Entity {
     }
 
 
-    private static final String DATE_FORMAT = "YYYY-MM-DD HH24:MI:SS";
+    private static final String DATE_FORMAT = "YYYY-MM-DD''T''HH24:MI:SS,MS";
 
     static Map<String,String> months = Stream.of(new String[][] {
             {"Jan", "01"},
@@ -81,24 +81,6 @@ public class RecordFailure extends Entity {
             {"Oct", "10"},
             {"Nov", "11"},
             {"Dec", "12"}}).collect(Collectors.toMap(month -> month[0], month -> month[1]));
-
-    /**
-     * Constructor.
-     */
-
-    public RecordFailure fromJson(UUID harvestJobId, JsonObject json) {
-        return new RecordFailure(
-                getUuidOrGenerate(json.getString(jsonPropertyName(ID))),
-                UUID.fromString(json.getString(jsonPropertyName(IMPORT_JOB_ID))),
-                null,  // importConfigId a column in view, thus read-only, ignore if in input JSON
-                null, // importConfigName a column in view, thus read-only, ignore if in input JSON
-                json.getString(jsonPropertyName(RECORD_NUMBER)),
-                json.getString(jsonPropertyName(TIME_STAMP)),
-                json.getString(jsonPropertyName(ORIGINAL_RECORD)),
-                json.getJsonArray(jsonPropertyName(RECORD_ERRORS)),
-                json.getJsonObject(jsonPropertyName(TRANSFORMED_RECORD))
-        );
-    }
 
     /**
      * Maps rows from RECORD_FAILURE_VIEW to RecordFailure object.
@@ -163,7 +145,7 @@ public class RecordFailure extends Entity {
         pgCqlDefinition.addField("recordNumber", new PgCqlFieldText().withExact().withLikeOps());
         pgCqlDefinition.addField("importConfigId", new PgCqlFieldUuid());
         pgCqlDefinition.addField(
-                "harvestableName", new PgCqlFieldText().withExact().withLikeOps().withFullText());
+                "importConfigName", new PgCqlFieldText().withExact().withLikeOps().withFullText());
         pgCqlDefinition.addField("timeStamp", new PgCqlFieldTimestamp());
         return pgCqlDefinition;
     }
@@ -175,7 +157,7 @@ public class RecordFailure extends Entity {
      */
     @Override
     public String jsonCollectionName() {
-        return null;
+        return "failedRecords";
     }
 
     /**
@@ -185,7 +167,7 @@ public class RecordFailure extends Entity {
      */
     @Override
     public String entityName() {
-        return null;
+        return "RecordFailure";
     }
 
     /**
@@ -196,7 +178,17 @@ public class RecordFailure extends Entity {
      */
     @Override
     public Entity fromJson(JsonObject json) {
-        return null;
+        return new RecordFailure(
+                getUuidOrGenerate(json.getString(jsonPropertyName(ID))),
+                UUID.fromString(json.getString(jsonPropertyName(IMPORT_JOB_ID))),
+                null,  // importConfigId a column in view, thus read-only, ignore if in input JSON
+                null, // importConfigName a column in view, thus read-only, ignore if in input JSON
+                json.getString(jsonPropertyName(RECORD_NUMBER)),
+                json.getString(jsonPropertyName(TIME_STAMP)),
+                json.getString(jsonPropertyName(ORIGINAL_RECORD)),
+                json.getJsonArray(jsonPropertyName(RECORD_ERRORS)),
+                json.getJsonObject(jsonPropertyName(TRANSFORMED_RECORD))
+        );
     }
 
     /**
@@ -224,7 +216,7 @@ public class RecordFailure extends Entity {
                 + "("
                 + dbColumnNameAndType(ID) + " PRIMARY KEY, "
                 + dbColumnNameAndType(IMPORT_JOB_ID) + " NOT NULL REFERENCES "
-                + pool.getSchema() + "." + Tables.import_job + "(" + new ImportJobLog().dbColumnName(ID) + "), "
+                + pool.getSchema() + "." + Tables.import_job + "(" + new ImportJob().dbColumnName(ID) + "), "
                 + dbColumnNameAndType(RECORD_NUMBER) + ", "
                 + dbColumnNameAndType(TIME_STAMP) + ", "
                 + dbColumnNameAndType(RECORD_ERRORS) + " NOT NULL, "
