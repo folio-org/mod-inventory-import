@@ -48,10 +48,6 @@ public class UnitTests {
     private static FakeFolioApis fakeFolioApis;
     public static final Header CONTENT_TYPE_XML = new Header("Content-Type", "application/xml");
     public static final Header CONTENT_TYPE_JSON = new Header("Content-Type", "application/json");
-    public static final String TRANSFORMATION_ID = "caf7dbe7-0cfc-4343-b1db-04671ac3e40a";
-    public static final String IMPORT_CONFIG_ID = "9ac8c174-fdd3-4380-a2f9-135b33df9795";
-    public static final String IMPORT_CONFIG_NAME = "test config";
-    public static final String IMPORT_JOB_ID = "cda450e1-46bf-4bb9-9741-876ec395d5e9";
     public static final String STEP_ID = "66d5ef34-ee3d-434c-a07d-80dbfdb31b6e";
 
     @ClassRule
@@ -350,128 +346,10 @@ public class UnitTests {
 
     @Test
     public void willPurgeAgedJobLogsUsingDefaultThreshold() {
-        Response response = given().port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .get("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(200).extract().response();
-        logger.info("will purge jobs response: " + response.asPrettyString());
 
-        given().port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .get("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(200).extract().response();
-
-        JsonObject transformation = new JsonObject();
-        transformation.put("id", TRANSFORMATION_ID)
-                .put("name", "testTransformation");
-        postJsonObject(PATH_TRANSFORMATIONS, transformation);
-
-        JsonObject importConfig = new JsonObject();
-        importConfig
-                .put("id", IMPORT_CONFIG_ID)
-                .put("name", IMPORT_CONFIG_NAME)
-                .put("type", "XML-BULK")
-                .put("url", "NA")
-                .put("transformationId", TRANSFORMATION_ID);
-        postJsonObject(PATH_IMPORT_CONFIGS, importConfig);
-
-
-        LocalDateTime now = LocalDateTime.now();
-        final LocalDateTime agedJobStartedTime = now.minusMonths(3).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
-        final LocalDateTime agedJobFinishedTime = agedJobStartedTime.plusMinutes(2);
-        final LocalDateTime intermediateJobStartedTime = now.minusMonths(2).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
-        final LocalDateTime intermediateJobFinishedTime = intermediateJobStartedTime.plusMinutes(2);
-        final LocalDateTime newerJobStartedTime = now.minusMonths(2).truncatedTo(ChronoUnit.SECONDS);
-        final LocalDateTime newerJobFinishedTime = newerJobStartedTime.plusMinutes(3);
-
-        JsonObject agedJobJson =
-                new JsonObject(
-                        "    {\n" +
-                                "      \"id\" : \"" + UUID.randomUUID() + "\",\n" +
-                                "      \"importConfigName\" : \"fake job log\",\n" +
-                                "      \"importConfigId\" : \"" + IMPORT_CONFIG_ID + "\",\n" +
-                                "      \"type\" : \"xmlBulk\",\n" +
-                                "      \"url\" : \"http://fileserver/xml/\",\n" +
-                                "      \"allowErrors\" : true,\n" +
-                                "      \"transformation\" : \"12345\",\n" +
-                                "      \"storage\" : \"Batch Upsert Inventory\",\n" +
-                                "      \"status\" : \"OK\",\n" +
-                                "      \"started\" : \"" + agedJobStartedTime + "\",\n" +
-                                "      \"finished\" : \"" + agedJobFinishedTime + "\",\n" +
-                                "      \"amountHarvested\" : 5,\n" +
-                                "      \"message\" : \"  Instances_processed/loaded/deletions(signals)/failed:__5___5___0(0)___0_ Holdings_records_processed/loaded/deleted/failed:__13___13___0___0_ Items_processed/loaded/deleted/failed:__4___4___0___0_ Source_records_processed/loaded/deleted/failed:__0___0___0___0_\"\n" +
-                                "    }\n");
-
-        JsonObject intermediateJobJson =
-                new JsonObject(
-                        "    {\n" +
-                                "      \"id\" : \"" + UUID.randomUUID() + "\",\n" +
-                                "      \"importConfigName\" : \"fake job log\",\n" +
-                                "      \"importConfigId\" : \"" + IMPORT_CONFIG_ID + "\",\n" +
-                                "      \"type\" : \"xmlBulk\",\n" +
-                                "      \"url\" : \"http://fileserver/xml/\",\n" +
-                                "      \"allowErrors\" : true,\n" +
-                                "      \"transformation\" : \"12345\",\n" +
-                                "      \"storage\" : \"Batch Upsert Inventory\",\n" +
-                                "      \"status\" : \"OK\",\n" +
-                                "      \"started\" : \"" + intermediateJobStartedTime + "\",\n" +
-                                "      \"finished\" : \"" + intermediateJobFinishedTime + "\",\n" +
-                                "      \"amountHarvested\" : 5,\n" +
-                                "      \"message\" : \"  Instances_processed/loaded/deletions(signals)/failed:__5___5___0(0)___0_ Holdings_records_processed/loaded/deleted/failed:__13___13___0___0_ Items_processed/loaded/deleted/failed:__4___4___0___0_ Source_records_processed/loaded/deleted/failed:__0___0___0___0_\"\n" +
-                                "    }\n");
-
-        JsonObject newerJobJson =
-                new JsonObject(
-                        "    {\n" +
-                                "      \"id\" : \"" + UUID.randomUUID() + "\",\n" +
-                                "      \"importConfigName\" : \"fake job log\",\n" +
-                                "      \"importConfigId\" : \"" + IMPORT_CONFIG_ID + "\",\n" +
-                                "      \"type\" : \"xmlBulk\",\n" +
-                                "      \"url\" : \"http://fileserver/xml/\",\n" +
-                                "      \"allowErrors\" : true,\n" +
-                                "      \"transformation\" : \"12345\",\n" +
-                                "      \"storage\" : \"Batch Upsert Inventory\",\n" +
-                                "      \"status\" : \"OK\",\n" +
-                                "      \"started\" : \"" + newerJobStartedTime + "\",\n" +
-                                "      \"finished\" : \"" + newerJobFinishedTime + "\",\n" +
-                                "      \"amountHarvested\" : 3,\n" +
-                                "      \"message\" : \"  Instances_processed/loaded/deletions(signals)/failed:__3___3___0(0)___0_ Holdings_records_processed/loaded/deleted/failed:__8___8___0___0_ Items_processed/loaded/deleted/failed:__2___2___0___0_ Source_records_processed/loaded/deleted/failed:__0___0___0___0_\"\n" +
-                                "    }\n");
-
-        given().port(PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
-                .body(agedJobJson.encode())
-                .contentType(ContentType.JSON)
-                .post("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(201).extract().response();
-
-        given().port(PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
-                .body(intermediateJobJson.encode())
-                .contentType(ContentType.JSON)
-                .post("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(201).extract().response();
-
-        given().port(PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
-                .body(newerJobJson.encode())
-                .contentType(ContentType.JSON)
-                .post("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(201).extract().response();
-
-        RestAssured
-                .given()
-                .port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .contentType(ContentType.JSON)
-                .get("inventory-import/import-jobs")
-                .then().statusCode(200)
-                .body("totalRecords", is(3));
+        createThreeImportJobReportsMonthsApart();
 
         final RequestSpecification timeoutConfig = timeoutConfig(10000);
-
         given()
                 .port(Service.PORT_OKAPI)
                 .header(OKAPI_TENANT)
@@ -484,152 +362,34 @@ public class UnitTests {
                 .then().log().ifValidationFails().statusCode(204)
                 .extract().response();
 
-        RestAssured
-                .given()
-                .port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .contentType(ContentType.JSON)
-                .get("inventory-import/import-jobs")
-                .then().statusCode(200)
-                .body("totalRecords", is(2));
+        getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(2));
+    }
 
+    private void createThreeImportJobReportsMonthsApart () {
+        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION);
+        postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
+
+        LocalDateTime now = LocalDateTime.now();
+        final LocalDateTime agedJobStarted = now.minusMonths(3).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
+        final LocalDateTime intermediateJobStarted = now.minusMonths(2).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
+        final LocalDateTime newerJobStarted = now.minusMonths(2).truncatedTo(ChronoUnit.SECONDS);
+
+        postJsonObject(PATH_IMPORT_JOBS,
+                JSON_IMPORT_JOB.copy().put("id", UUID.randomUUID())
+                        .put("started",agedJobStarted.toString()).put("finished", agedJobStarted.plusMinutes(2).toString()));
+        postJsonObject(PATH_IMPORT_JOBS,
+                JSON_IMPORT_JOB.copy().put("id", UUID.randomUUID())
+                        .put("started",intermediateJobStarted.toString()).put("finished", intermediateJobStarted.plusMinutes(2).toString()));
+        postJsonObject(PATH_IMPORT_JOBS,
+                JSON_IMPORT_JOB.copy().put("id", UUID.randomUUID())
+                        .put("started", newerJobStarted.toString()).put("finished", newerJobStarted.plusMinutes(2).toString()));
+        getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(3));
     }
 
     @Test
     public void willPurgeAgedJobLogsUsingSettingsEntry() {
 
-        Response response = given().port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .get("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(200).extract().response();
-        logger.info("will purge jobs response: " + response.asPrettyString());
-
-        given().port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .get("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(200).extract().response();
-
-        JsonObject transformation = new JsonObject();
-        transformation.put("id", TRANSFORMATION_ID)
-                .put("name", "testTransformation");
-        postJsonObject(PATH_TRANSFORMATIONS, transformation);
-
-        JsonObject importConfig = new JsonObject();
-        importConfig
-                .put("id", IMPORT_CONFIG_ID)
-                .put("name", IMPORT_CONFIG_NAME)
-                .put("type", "XML-BULK")
-                .put("url", "NA")
-                .put("transformationId", TRANSFORMATION_ID);
-        postJsonObject(PATH_IMPORT_CONFIGS, importConfig);
-
-        Response response2 = given().port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .get("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(200).extract().response();
-        logger.info("will purge jobs response: " + response2.asPrettyString());
-
-        given().port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .get("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(200).extract().response();
-
-        LocalDateTime now = LocalDateTime.now();
-        final LocalDateTime agedJobStartedTime = now.minusMonths(3).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
-        final LocalDateTime agedJobFinishedTime = agedJobStartedTime.plusMinutes(2);
-        final LocalDateTime intermediateJobStartedTime = now.minusMonths(2).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
-        final LocalDateTime intermediateJobFinishedTime = intermediateJobStartedTime.plusMinutes(2);
-        final LocalDateTime newerJobStartedTime = now.minusMonths(2).truncatedTo(ChronoUnit.SECONDS);
-        final LocalDateTime newerJobFinishedTime = newerJobStartedTime.plusMinutes(3);
-
-        JsonObject agedJobJson =
-                new JsonObject(
-                        "    {\n" +
-                                "      \"id\" : \"" + UUID.randomUUID() + "\",\n" +
-                                "      \"importConfigName\" : \"fake job log\",\n" +
-                                "      \"importConfigId\" : \"" + IMPORT_CONFIG_ID + "\",\n" +
-                                "      \"type\" : \"xmlBulk\",\n" +
-                                "      \"url\" : \"http://fileserver/xml/\",\n" +
-                                "      \"allowErrors\" : true,\n" +
-                                "      \"transformation\" : \"12345\",\n" +
-                                "      \"storage\" : \"Batch Upsert Inventory\",\n" +
-                                "      \"status\" : \"OK\",\n" +
-                                "      \"started\" : \"" + agedJobStartedTime + "\",\n" +
-                                "      \"finished\" : \"" + agedJobFinishedTime + "\",\n" +
-                                "      \"amountHarvested\" : 5,\n" +
-                                "      \"message\" : \"  Instances_processed/loaded/deletions(signals)/failed:__5___5___0(0)___0_ Holdings_records_processed/loaded/deleted/failed:__13___13___0___0_ Items_processed/loaded/deleted/failed:__4___4___0___0_ Source_records_processed/loaded/deleted/failed:__0___0___0___0_\"\n" +
-                                "    }\n");
-
-        JsonObject intermediateJobJson =
-                new JsonObject(
-                        "    {\n" +
-                                "      \"id\" : \"" + UUID.randomUUID() + "\",\n" +
-                                "      \"importConfigName\" : \"fake job log\",\n" +
-                                "      \"importConfigId\" : \"" + IMPORT_CONFIG_ID + "\",\n" +
-                                "      \"type\" : \"xmlBulk\",\n" +
-                                "      \"url\" : \"http://fileserver/xml/\",\n" +
-                                "      \"allowErrors\" : true,\n" +
-                                "      \"transformation\" : \"12345\",\n" +
-                                "      \"storage\" : \"Batch Upsert Inventory\",\n" +
-                                "      \"status\" : \"OK\",\n" +
-                                "      \"started\" : \"" + intermediateJobStartedTime + "\",\n" +
-                                "      \"finished\" : \"" + intermediateJobFinishedTime + "\",\n" +
-                                "      \"amountHarvested\" : 5,\n" +
-                                "      \"message\" : \"  Instances_processed/loaded/deletions(signals)/failed:__5___5___0(0)___0_ Holdings_records_processed/loaded/deleted/failed:__13___13___0___0_ Items_processed/loaded/deleted/failed:__4___4___0___0_ Source_records_processed/loaded/deleted/failed:__0___0___0___0_\"\n" +
-                                "    }\n");
-
-
-        JsonObject newerJobJson =
-                new JsonObject(
-                        "    {\n" +
-                                "      \"id\" : \"" + UUID.randomUUID() + "\",\n" +
-                                "      \"importConfigName\" : \"fake job log\",\n" +
-                                "      \"importConfigId\" : \"" + IMPORT_CONFIG_ID + "\",\n" +
-                                "      \"type\" : \"xmlBulk\",\n" +
-                                "      \"url\" : \"http://fileserver/xml/\",\n" +
-                                "      \"allowErrors\" : true,\n" +
-                                "      \"transformation\" : \"12345\",\n" +
-                                "      \"storage\" : \"Batch Upsert Inventory\",\n" +
-                                "      \"status\" : \"OK\",\n" +
-                                "      \"started\" : \"" + newerJobStartedTime + "\",\n" +
-                                "      \"finished\" : \"" + newerJobFinishedTime + "\",\n" +
-                                "      \"amountHarvested\" : 3,\n" +
-                                "      \"message\" : \"  Instances_processed/loaded/deletions(signals)/failed:__3___3___0(0)___0_ Holdings_records_processed/loaded/deleted/failed:__8___8___0___0_ Items_processed/loaded/deleted/failed:__2___2___0___0_ Source_records_processed/loaded/deleted/failed:__0___0___0___0_\"\n" +
-                                "    }\n");
-
-        given().port(PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
-                .body(agedJobJson.encode())
-                .contentType(ContentType.JSON)
-                .post("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(201).extract().response();
-
-        given().port(PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
-                .body(intermediateJobJson.encode())
-                .contentType(ContentType.JSON)
-                .post("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(201).extract().response();
-
-        given().port(PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
-                .body(newerJobJson.encode())
-                .contentType(ContentType.JSON)
-                .post("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(201).extract().response();
-
-        RestAssured
-                .given()
-                .port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .contentType(ContentType.JSON)
-                .get("inventory-import/import-jobs")
-                .then().statusCode(200)
-                .body("totalRecords", is(3));
+        createThreeImportJobReportsMonthsApart();
 
         logger.info(FakeFolioApis.post("/settings/entries",
                 new JsonObject()
@@ -638,11 +398,8 @@ public class UnitTests {
                         .put("key", "PURGE_LOGS_AFTER")
                         .put("value", "2 MONTHS")).encodePrettily());
 
-
-        Response response3 = RestAssured
-                .given()
-                .baseUri("http://localhost:" + Service.PORT_OKAPI)
-                .port(Service.PORT_OKAPI)
+        given()
+                .baseUri(BASE_URI_OKAPI)
                 .header(OKAPI_TENANT)
                 .contentType(ContentType.JSON)
                 .get("settings/entries")
@@ -650,8 +407,6 @@ public class UnitTests {
                 .body("totalRecords", is(1))
                 .extract().response();
 
-        logger.info(response3.asPrettyString());
-
         final RequestSpecification timeoutConfig = timeoutConfig(10000);
 
         given()
@@ -666,150 +421,13 @@ public class UnitTests {
                 .then().log().ifValidationFails().statusCode(204)
                 .extract().response();
 
-        RestAssured
-                .given()
-                .port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .contentType(ContentType.JSON)
-                .get("inventory-import/import-jobs")
-                .then().statusCode(200)
-                .body("totalRecords", is(1));
+        getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(1));
     }
 
     @Test
     public void willPurgeAgedJobLogsUsingConfigurationsEntry() {
-        Response response = given().port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .get("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(200).extract().response();
-        logger.info("will purge jobs response: " + response.asPrettyString());
 
-        given().port(Service.PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .get("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(200).extract().response();
-
-        JsonObject transformation = new JsonObject();
-        transformation.put("id", TRANSFORMATION_ID)
-                .put("name", "testTransformation");
-        postJsonObject(PATH_TRANSFORMATIONS, transformation);
-
-        JsonObject importConfig = new JsonObject();
-        importConfig
-                .put("id", IMPORT_CONFIG_ID)
-                .put("name", IMPORT_CONFIG_NAME)
-                .put("type", "XML-BULK")
-                .put("url", "NA")
-                .put("transformationId", TRANSFORMATION_ID);
-        postJsonObject(PATH_IMPORT_CONFIGS, importConfig);
-
-        Response response2 = given().port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .get("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(200).extract().response();
-        logger.info("will purge jobs response: " + response2.asPrettyString());
-
-        given().port(PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .get("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(200).extract().response();
-
-        LocalDateTime now = LocalDateTime.now();
-        final LocalDateTime agedJobStartedTime = now.minusMonths(3).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
-        final LocalDateTime agedJobFinishedTime = agedJobStartedTime.plusMinutes(2);
-        final LocalDateTime intermediateJobStartedTime = now.minusMonths(2).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
-        final LocalDateTime intermediateJobFinishedTime = intermediateJobStartedTime.plusMinutes(2);
-        final LocalDateTime newerJobStartedTime = now.minusMonths(2).truncatedTo(ChronoUnit.SECONDS);
-        final LocalDateTime newerJobFinishedTime = newerJobStartedTime.plusMinutes(3);
-
-        JsonObject agedJobJson =
-                new JsonObject(
-                        "    {\n" +
-                                "      \"id\" : \"" + UUID.randomUUID() + "\",\n" +
-                                "      \"importConfigName\" : \"fake job log\",\n" +
-                                "      \"importConfigId\" : \"" + IMPORT_CONFIG_ID + "\",\n" +
-                                "      \"type\" : \"xmlBulk\",\n" +
-                                "      \"url\" : \"http://fileserver/xml/\",\n" +
-                                "      \"allowErrors\" : true,\n" +
-                                "      \"transformation\" : \"12345\",\n" +
-                                "      \"storage\" : \"Batch Upsert Inventory\",\n" +
-                                "      \"status\" : \"OK\",\n" +
-                                "      \"started\" : \"" + agedJobStartedTime + "\",\n" +
-                                "      \"finished\" : \"" + agedJobFinishedTime + "\",\n" +
-                                "      \"amountHarvested\" : 5,\n" +
-                                "      \"message\" : \"  Instances_processed/loaded/deletions(signals)/failed:__5___5___0(0)___0_ Holdings_records_processed/loaded/deleted/failed:__13___13___0___0_ Items_processed/loaded/deleted/failed:__4___4___0___0_ Source_records_processed/loaded/deleted/failed:__0___0___0___0_\"\n" +
-                                "    }\n");
-
-        JsonObject intermediateJobJson =
-                new JsonObject(
-                        "    {\n" +
-                                "      \"id\" : \"" + UUID.randomUUID() + "\",\n" +
-                                "      \"importConfigName\" : \"fake job log\",\n" +
-                                "      \"importConfigId\" : \"" + IMPORT_CONFIG_ID + "\",\n" +
-                                "      \"type\" : \"xmlBulk\",\n" +
-                                "      \"url\" : \"http://fileserver/xml/\",\n" +
-                                "      \"allowErrors\" : true,\n" +
-                                "      \"transformation\" : \"12345\",\n" +
-                                "      \"storage\" : \"Batch Upsert Inventory\",\n" +
-                                "      \"status\" : \"OK\",\n" +
-                                "      \"started\" : \"" + intermediateJobStartedTime + "\",\n" +
-                                "      \"finished\" : \"" + intermediateJobFinishedTime + "\",\n" +
-                                "      \"amountHarvested\" : 5,\n" +
-                                "      \"message\" : \"  Instances_processed/loaded/deletions(signals)/failed:__5___5___0(0)___0_ Holdings_records_processed/loaded/deleted/failed:__13___13___0___0_ Items_processed/loaded/deleted/failed:__4___4___0___0_ Source_records_processed/loaded/deleted/failed:__0___0___0___0_\"\n" +
-                                "    }\n");
-
-
-        JsonObject newerJobJson =
-                new JsonObject(
-                        "    {\n" +
-                                "      \"id\" : \"" + UUID.randomUUID() + "\",\n" +
-                                "      \"importConfigName\" : \"fake job log\",\n" +
-                                "      \"importConfigId\" : \"" + IMPORT_CONFIG_ID + "\",\n" +
-                                "      \"type\" : \"xmlBulk\",\n" +
-                                "      \"url\" : \"http://fileserver/xml/\",\n" +
-                                "      \"allowErrors\" : true,\n" +
-                                "      \"transformation\" : \"12345\",\n" +
-                                "      \"storage\" : \"Batch Upsert Inventory\",\n" +
-                                "      \"status\" : \"OK\",\n" +
-                                "      \"started\" : \"" + newerJobStartedTime + "\",\n" +
-                                "      \"finished\" : \"" + newerJobFinishedTime + "\",\n" +
-                                "      \"amountHarvested\" : 3,\n" +
-                                "      \"message\" : \"  Instances_processed/loaded/deletions(signals)/failed:__3___3___0(0)___0_ Holdings_records_processed/loaded/deleted/failed:__8___8___0___0_ Items_processed/loaded/deleted/failed:__2___2___0___0_ Source_records_processed/loaded/deleted/failed:__0___0___0___0_\"\n" +
-                                "    }\n");
-
-        given().port(Service.PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
-                .body(agedJobJson.encode())
-                .contentType(ContentType.JSON)
-                .post("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(201).extract().response();
-
-        given().port(Service.PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
-                .body(intermediateJobJson.encode())
-                .contentType(ContentType.JSON)
-                .post("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(201).extract().response();
-
-        given().port(Service.PORT_INVENTORY_IMPORT).header(OKAPI_TENANT)
-                .body(newerJobJson.encode())
-                .contentType(ContentType.JSON)
-                .post("inventory-import/import-jobs")
-                .then()
-                .log().ifValidationFails().statusCode(201).extract().response();
-
-        RestAssured
-                .given()
-                .port(Service.PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .contentType(ContentType.JSON)
-                .get("inventory-import/import-jobs")
-                .then().statusCode(200)
-                .body("totalRecords", is(3));
+        createThreeImportJobReportsMonthsApart();
 
         FakeFolioApis.post("/configurations/entries",
                 new JsonObject()
@@ -817,16 +435,14 @@ public class UnitTests {
                         .put("configName", "PURGE_LOGS_AFTER")
                         .put("value", "2 MONTHS"));
 
-        RestAssured
-                .given()
+        given()
                 .baseUri("http://localhost:" + Service.PORT_OKAPI)
                 .port(Service.PORT_OKAPI)
                 .header(OKAPI_TENANT)
                 .contentType(ContentType.JSON)
                 .get("configurations/entries")
                 .then().statusCode(200)
-                .body("totalRecords", is(1))
-                .extract().response();
+                .body("totalRecords", is(1));
 
         final RequestSpecification timeoutConfig = timeoutConfig(10000);
 
@@ -839,17 +455,9 @@ public class UnitTests {
                 .header(XOkapiHeaders.REQUEST_ID, "purge-aged-logs")
                 .spec(timeoutConfig)
                 .when().post("inventory-import/purge-aged-logs")
-                .then().log().ifValidationFails().statusCode(204)
-                .extract().response();
+                .then().log().ifValidationFails().statusCode(204);
 
-        RestAssured
-                .given()
-                .port(Service.PORT_INVENTORY_IMPORT)
-                .header(OKAPI_TENANT)
-                .contentType(ContentType.JSON)
-                .get("inventory-import/import-jobs")
-                .then().statusCode(200)
-                .body("totalRecords", is(1));
+        getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(1));
     }
 
 
