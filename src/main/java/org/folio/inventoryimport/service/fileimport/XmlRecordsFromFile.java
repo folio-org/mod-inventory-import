@@ -2,6 +2,7 @@ package org.folio.inventoryimport.service.fileimport;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.inventoryimport.utils.SecureSaxParser;
 import org.folio.reservoir.util.EncodeXmlText;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
@@ -30,11 +31,11 @@ public class XmlRecordsFromFile extends DefaultHandler implements RecordProvider
         return this;
     }
 
+    @Override
     public void provideRecords() {
         try {
-            SAXParserFactory factory = SAXParserFactory.newInstance();
             InputStream inputStream = new ByteArrayInputStream(xmlCollectionOfRecords.getBytes(StandardCharsets.UTF_8));
-            factory.newSAXParser().parse(inputStream, this);
+            SecureSaxParser.get().parse(inputStream, this);
         } catch (ParserConfigurationException | SAXException pce) {
             logger.error("SaxParsing, produceRecords, error: " + pce.getMessage());
         } catch (IOException e) {
