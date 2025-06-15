@@ -55,7 +55,7 @@ public class InventoryUpdateClient {
         }
 
         public JsonArray getErrors() {
-            if (json != null) {
+            if (json != null && json.containsKey("errors")) {
                 return json.getJsonArray("errors");
             } else {
                 return new JsonArray();

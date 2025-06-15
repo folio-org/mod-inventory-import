@@ -72,7 +72,7 @@
     },
     "recordNumber": {
       "type": "string",
-      "description": "The identifier assigned to this error report by Harvester"
+      "description": "The identifier assigned to this error report by Inventory Import"
     }
   }
 }

@@ -315,7 +315,7 @@ public class UnitTests {
 
     @Test
     public void willConvertInventoryXmlToInventoryJson() {
-        JsonObject json = InventoryXmlToInventoryJson.convert(XML_INVENTORY_RECORD_SET);
+        JsonObject json = InventoryXmlToInventoryJson.convert(XML_INVENTORY_RECORD_SET_200);
         assertThat(json.getJsonObject("instance"), notNullValue());
         assertThat(json.getJsonArray("holdingsRecords").size(), is(1));
     }
@@ -342,15 +342,46 @@ public class UnitTests {
 
         getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
         getRecordById(PATH_TRANSFORMATIONS, transformationId);
-        postSourceXml(BASE_PATH_IMPORT_XML_FILE + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET);
+        postSourceXml(BASE_PATH_IMPORT_XML_FILE + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_200);
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
     }
-    
-    
+
+    @Test
+    public void canFileAndRetrieveFailedRecordInCaseOfUpsertResponse207() {
+        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG);
+
+        JsonObject step = new JsonObject();
+        step.put("id", STEP_ID)
+                .put("name", "test step")
+                .put("enabled", true)
+                .put("script", Files.XSLT_COPY_XML_DOC);
+        postJsonObject(PATH_STEPS, step);
+        JsonObject tsa = new JsonObject();
+        tsa.put("stepId", STEP_ID)
+                .put("transformationId", JSON_TRANSFORMATION_CONFIG.getString("id"))
+                .put("position", "1");
+        postJsonObject(PATH_TSAS, tsa);
+        postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
+
+        String importConfigId = JSON_IMPORT_CONFIG.getString("id");
+        String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
+
+        getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
+        getRecordById(PATH_TRANSFORMATIONS, transformationId);
+        postSourceXml(BASE_PATH_IMPORT_XML_FILE + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_207);
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
+        String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
+        await().until(() -> getTotalRecords(PATH_IMPORT_JOBS + "/" + jobId + "/failed-records"), is(1));
+    }
+
+
 
     @Test
     public void willPurgeAgedJobLogsUsingDefaultThreshold() {
