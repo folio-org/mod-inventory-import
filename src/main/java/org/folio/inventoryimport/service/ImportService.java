@@ -40,7 +40,6 @@ import java.util.function.BiFunction;
 
 import static org.folio.okapi.common.HttpResponse.*;
 
-
 /**
  * Main service.
  */
@@ -58,8 +57,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private void handlers(Vertx vertx, RouterBuilder routerBuilder) {
-
-        // Configurations tables
+        // Configurations
         handler(vertx, routerBuilder, "postImportConfig", this::postImportConfig);
         handler(vertx, routerBuilder, "getImportConfigs", this::getImportConfigs);
         handler(vertx, routerBuilder, "getImportConfig", this::getImportConfigById);
@@ -84,10 +82,10 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         handler(vertx, routerBuilder, "getFailedRecordsForJob", this::getFailedRecords);
         handler(vertx, routerBuilder, "postFailedRecordsForJob", this::postFailedRecordsForJob);
         handler(vertx, routerBuilder, "deleteRecordFailure", this::deleteRecordFailure);
-        // Process
+        // Processing
         handler(vertx, routerBuilder, "purgeAgedLogs", this::purgeAgedLogs);
-        handler(vertx, routerBuilder,"importXmlRecords", this::stageXmlSourceFile);
-        handler(vertx, routerBuilder,"startImportVerticle", this::ensureRunningImportVerticle);
+        handler(vertx, routerBuilder, "importXmlRecords", this::stageXmlSourceFile);
+        handler(vertx, routerBuilder, "startImportVerticle", this::ensureRunningImportVerticle);
         handler(vertx, routerBuilder, "stopImportVerticle", this::ensureStoppedImportVerticle);
     }
 

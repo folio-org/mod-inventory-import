@@ -200,7 +200,7 @@ public class RecordFailure extends Entity {
         json.put(jsonPropertyName(IMPORT_JOB_ID), record.importJobId);
         json.put(jsonPropertyName(VIEW_IMPORT_CONFIG_ID), record.importConfigId);
         json.put(jsonPropertyName(VIEW_IMPORT_CONFIG_NAME), record.importConfigName);
-        json.put(jsonPropertyName(RECORD_NUMBER), record.recordErrors);
+        json.put(jsonPropertyName(RECORD_NUMBER), record.recordNumber);
         json.put(jsonPropertyName(TIME_STAMP), record.timeStamp);
         json.put(jsonPropertyName(RECORD_ERRORS), record.recordErrors);
         json.put(jsonPropertyName(ORIGINAL_RECORD), record.originalRecord);

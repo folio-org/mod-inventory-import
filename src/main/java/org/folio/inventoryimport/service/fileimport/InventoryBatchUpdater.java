@@ -2,13 +2,12 @@ package org.folio.inventoryimport.service.fileimport;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.foliodata.InventoryUpdateClient;
 
+import java.util.ArrayList;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -16,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class InventoryBatchUpdater implements RecordReceiver {
 
     private final ImportJob job;
-    private JsonArray inventoryRecordSets = new JsonArray();
+    private final ArrayList<ProcessingRecord> records = new ArrayList<>();
     private final InventoryUpdateClient updateClient;
     private final Turnstile turnstile = new Turnstile();
     public static final Logger logger = LogManager.getLogger("InventoryBatchUpdater");
@@ -28,29 +27,28 @@ public class InventoryBatchUpdater implements RecordReceiver {
     }
 
     @Override
-    public void put(String jsonRecord) {
-        if (jsonRecord != null) {
-            JsonObject json = new JsonObject(jsonRecord).getJsonArray("inventoryRecordSets").getJsonObject(0);
-            if (!json.containsKey("processing")) {
-                json.put("processing", new JsonObject());
-            }
-            json.getJsonObject("processing").put("batchIndex", inventoryRecordSets.size());
-            inventoryRecordSets.add(json);
-            if (inventoryRecordSets.size() > 99) {
-                JsonArray records = inventoryRecordSets.copy();
-                inventoryRecordSets = new JsonArray();
-                releaseBatch(new BatchOfRecords(records, false));
+    public void put(ProcessingRecord record) {
+        if (record != null) {
+            record.setBatchIndex(records.size());
+            records.add(record);
+            if (records.size() > 99) {
+                ArrayList<ProcessingRecord> copyOfRecords = new ArrayList<>(records);
+                records.clear();
+                releaseBatch(new BatchOfRecords(copyOfRecords, false));
             }
         } else { // a null record is the end-of-file signal, forward remaining records if any
-            JsonArray records = inventoryRecordSets.copy();
-            inventoryRecordSets = new JsonArray();
-            releaseBatch(new BatchOfRecords(records, true));
+            ArrayList<ProcessingRecord> copyOfRecords = new ArrayList<>(records);
+            records.clear();
+            releaseBatch(new BatchOfRecords(copyOfRecords, true));
         }
     }
 
     private void releaseBatch(BatchOfRecords batch) {
         turnstile.enterBatch(batch);
-        persistBatch().onComplete(na -> turnstile.exitBatch());
+        persistBatch().onFailure(na -> {
+            turnstile.exitBatch();
+            logger.error("Unexpected error during upsert " + na.getMessage());
+        }).onSuccess(na -> turnstile.exitBatch());
     }
 
     @Override
@@ -58,19 +56,28 @@ public class InventoryBatchUpdater implements RecordReceiver {
         put(null);
     }
 
+    public void clearTurnstile() {
+        turnstile.clear();
+    }
+
     /**
      * This is the last function of the import pipeline, and since it's asynchronous
-     * it must be in charge of when to invoke reporting. JobHandler will not
-     * otherwise know when the last upsert of a source file of records is done, for example.
+     * it must be in charge of when to invoke reporting. The job handling verticle will not
+     * know when the last upsert of a source file of records is done, for example.
      */
     private Future<Void> persistBatch() {
         Promise<Void> promise = Promise.promise();
         BatchOfRecords batch = turnstile.viewCurrentBatch();
         if (batch != null) {
             if (batch.size() > 0) {
-                updateClient.inventoryUpsert(batch.getUpsertRequestBody()).onComplete(json -> {
+                updateClient.inventoryUpsert(batch.getUpsertRequestBody()).onSuccess(upsert -> {
                     job.reporting.incrementRecordsProcessed(batch.size());
-                    job.reporting.incrementInventoryMetrics(new InventoryMetrics(json.result().getJsonObject("metrics")));
+                    if (upsert.statusCode() == 207) {
+                        batch.setResponse(upsert);
+                        job.reporting.reportErrors(batch)
+                                .onFailure(err -> logger.error("Error logging upsert results " + err.getMessage()));
+                    }
+                    job.reporting.incrementInventoryMetrics(new InventoryMetrics(upsert.getMetrics()));
                     if (batch.isLastBatchOfFile()) {
                         reportEndOfFile();
                     }
@@ -118,6 +125,10 @@ public class InventoryBatchUpdater implements RecordReceiver {
             }
         }
 
+        private void clear() {
+            turnstile.clear();
+        }
+
         private void exitBatch() {
             try {
                 turnstile.take();
@@ -138,9 +149,11 @@ public class InventoryBatchUpdater implements RecordReceiver {
                     return true;
                 }
             } else {
+                logger.info("Turnstile not empty");
                 turnstileEmptyChecks.set(0);
             }
             return false;
         }
+
     }
 }

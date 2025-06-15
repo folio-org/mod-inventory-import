@@ -164,11 +164,11 @@ public class Step extends Entity {
 
     public Future<Void> updateScript(String xslt, ModuleStorageAccess storage) {
         setScript(xslt);
-        System.out.println(getLineSeparatedXslt());
         return storage.updateEntity(this,
                 "UPDATE " + storage.schema() + "." + table()
-                        + " SET " + dbColumnName(SCRIPT) + " = '" + xslt.replaceAll(System.lineSeparator(), "\n")+"'"
-                        + "WHERE id = #{id}");
+                        + " SET " + dbColumnName(SCRIPT)
+                        + " = #{" + dbColumnName(SCRIPT) + "}".replaceAll(System.lineSeparator(), "\n")
+                        + " WHERE id = #{id}");
     }
 
     @Override

@@ -101,9 +101,8 @@ public class ModuleStorageAccess {
                 .mapFrom(entity.getTupleMapper())
                 .execute(entity)
                 .onSuccess(res -> logger.info("Updated " + entity.entityName().toLowerCase() + "."))
-                .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage()))
+                .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage() + " " + updateTemplate))
                 .mapEmpty();
-
     }
 
     public Future<Void> storeEntities(Entity definition, List<Entity> entities) {
@@ -112,7 +111,7 @@ public class ModuleStorageAccess {
                             definition.makeInsertTemplate(pool.getSchema()))
                     .mapFrom(definition.getTupleMapper())
                     .executeBatch(entities)
-                    .onSuccess(res -> logger.info("Saved batch of " + definition.entityName().toLowerCase()))
+                    .onSuccess(res -> logger.info("Saved batch of " + definition.entityName().toLowerCase() + ", row count: " + res.rowCount()))
                     .onFailure(res -> logger.error("Couldn't save batch of " + definition.entityName().toLowerCase() + ": " + res.getMessage()))
                     .mapEmpty();
         } else {

@@ -66,6 +66,7 @@ public class XmlFilesImportVerticle extends AbstractVerticle {
                 logger.error("Error attempting to undeploy import verticle for tenant [" + tenant + "] and import config [" + importConfigId + "].");
                 promise.fail("Error attempting to undeploy import verticle for import config [" + importConfigId + "].");
             }
+            verticle.getJob(false).onSuccess(job -> job.updater.clearTurnstile());
         } else {
             promise.complete("Currently no running verticle found to un-deploy for import config [" + importConfigId + "].");
         }

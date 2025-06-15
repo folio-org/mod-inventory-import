@@ -2,19 +2,23 @@ package org.folio.inventoryimport.service.fileimport;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.moduledata.Entity;
 import org.folio.inventoryimport.moduledata.LogLine;
+import org.folio.inventoryimport.moduledata.RecordFailure;
 import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
 import org.folio.inventoryimport.utils.SettableClock;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class Reporting {
 
@@ -101,6 +105,46 @@ public class Reporting {
             logger.info("Done processing queue. " + filesProcessed + " file(s) with " + recordsProcessed.get() +
                     " records processed in " + processingTimeAsString(processingTime) + " (" +
                     (recordsProcessed.get() * 1000L / processingTime) + " recs/s.)");
+        }
+    }
+
+    public Future<Void> reportErrors(BatchOfRecords batch) {
+        // Perform assert fileStats.peek() != null;
+        // Perform String fileName = fileStats.peek().getFileName();
+        try {
+            return storage.storeEntities(
+                    new RecordFailure(),
+                    batch.getErrors().stream()
+                            .map(error -> ((JsonObject) error))
+                            .map(error -> new RecordFailure(UUID.randomUUID(),
+                                    importJob.importJob.record.id(),
+                                    importJob.importConfigId,
+                                    importJob.importJob.record.importConfigName(),
+                                    getInstanceHridFromErrorResponse(error),
+                                    SettableClock.getLocalDateTime().toString(),
+                                    getBatchIndexFromErrorResponse(error) == null ? null : batch.get(getBatchIndexFromErrorResponse(error)).getOriginalRecordAsString(),
+                                    error.getJsonObject("message").getJsonArray("errors"),
+                                    error.getJsonObject("requestJson"))
+                            ).collect(Collectors.toList()));
+        } catch (Exception e) {
+            logger.error("Exception storing failed records: " + e.getMessage() + " " + Arrays.toString(e.getStackTrace()));
+            return Future.failedFuture("Exception storing failed records: " + e.getMessage());
+        }
+    }
+
+    private static String getInstanceHridFromErrorResponse(JsonObject errorJson) {
+        if (errorJson != null && errorJson.getJsonObject("requestJson") !=null && errorJson.getJsonObject("requestJson").containsKey("instance")) {
+            return errorJson.getJsonObject("requestJson").getJsonObject("instance").getString("hrid");
+        } else {
+            return null;
+        }
+    }
+
+    private static Integer getBatchIndexFromErrorResponse(JsonObject errorJson) {
+        if (errorJson != null && errorJson.containsKey("requestJson") && errorJson.getJsonObject("requestJson").containsKey("processing")) {
+            return errorJson.getJsonObject("requestJson").getJsonObject("processing").getInteger("batchIndex");
+        } else {
+            return null;
         }
     }
 
