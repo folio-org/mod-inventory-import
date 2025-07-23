@@ -86,7 +86,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         handler(vertx, routerBuilder, "purgeAgedLogs", this::purgeAgedLogs);
         handler(vertx, routerBuilder, "importXmlRecords", this::stageXmlSourceFile);
         handler(vertx, routerBuilder, "startImportVerticle", this::ensureRunningImportVerticle);
-        handler(vertx, routerBuilder, "stopImportVerticle", this::ensureStoppedImportVerticle);
+        handler(vertx, routerBuilder, "stopImportVerticle", this::pauseImportVerticle);
     }
 
     private void exceptionResponse(Throwable cause, RoutingContext routingContext) {
@@ -491,7 +491,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
                 .onSuccess(cfg -> {
                     if (cfg != null) {
                         XmlFilesImportVerticle
-                                .deployIfUndeployed(vertx, tenant, importConfigId, routingContext)
+                                .deployOrResume(vertx, tenant, importConfigId, routingContext)
                                 .onSuccess(promise::complete);
                     } else {
                         promise.fail("Could not find import config with id [" + importConfigId + "] found.");
@@ -500,10 +500,10 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         return promise.future();
     }
 
-    private Future<Void> ensureStoppedImportVerticle(Vertx vertx, RoutingContext routingContext) {
+    private Future<Void> pauseImportVerticle(Vertx vertx, RoutingContext routingContext) {
         String tenant = TenantUtil.tenant(routingContext);
         String importConfigId = routingContext.pathParam("id");
-        return XmlFilesImportVerticle.undeployIfDeployed(vertx, tenant, importConfigId)
+        return XmlFilesImportVerticle.haltIfDeployed(tenant, importConfigId)
                 .onSuccess(outcome -> responseText(routingContext, 200).end(outcome))
                 .mapEmpty();
     }

@@ -19,6 +19,7 @@ public class XmlFilesImportVerticle extends AbstractVerticle {
     private ImportJob importJob;
     private final RoutingContext routingContext;
     final FileQueue fileQueue;
+
     public static final Logger logger = LogManager.getLogger("queued-files-processing");
 
     public XmlFilesImportVerticle(String tenant, String importConfigurationId, Vertx vertx, RoutingContext routingContext) {
@@ -28,10 +29,11 @@ public class XmlFilesImportVerticle extends AbstractVerticle {
         this.fileQueue = new FileQueue(vertx, tenant, importConfigurationId);
     }
 
-    public static Future<String> deployIfUndeployed(Vertx vertx, String tenant, String importConfigurationId, RoutingContext routingContext) {
+    public static Future<String> deployOrResume(Vertx vertx, String tenant, String importConfigurationId, RoutingContext routingContext) {
         Promise<String> promise = Promise.promise();
         fileImportVerticles.putIfAbsent(tenant, new ConcurrentHashMap<>());
-        if (fileImportVerticles.get(tenant).get(importConfigurationId) == null) {
+        XmlFilesImportVerticle verticle = fileImportVerticles.get(tenant).get(importConfigurationId);
+        if (verticle == null) {
             fileImportVerticles.get(tenant).put(importConfigurationId,new XmlFilesImportVerticle(tenant, importConfigurationId, vertx, routingContext));
             vertx.deployVerticle(fileImportVerticles.get(tenant).get(importConfigurationId),
                     new DeploymentOptions().setWorkerPoolSize(1).setMaxWorkerExecuteTime(10).setMaxWorkerExecuteTimeUnit(TimeUnit.MINUTES)).onComplete(
@@ -45,30 +47,25 @@ public class XmlFilesImportVerticle extends AbstractVerticle {
                         }
                     });
         } else {
-            promise.complete("Got already existing verticle for import configuration ID [" + importConfigurationId + "].");
+            logger.info("Deploy if not deployed, got existing verticle, halted=" + verticle.importJob.halted());
+            if (verticle.importJob.halted()) {
+                verticle.getJob(true).onSuccess(ImportJob::resume);
+                promise.complete("Resuming paused job, import configuration ID [" + importConfigurationId + "].");
+            } else {
+                promise.complete("Got already existing verticle for import configuration ID [" + importConfigurationId + "].");
+            }
         }
         return promise.future();
     }
 
-    public static Future<String> undeployIfDeployed(Vertx vertx, String tenant, String importConfigId) {
+    public static Future<String> haltIfDeployed(String tenant, String importConfigId) {
         Promise<String> promise = Promise.promise();
         XmlFilesImportVerticle verticle = getVerticle(tenant, importConfigId);
         if (verticle != null) {
-            try {
-                String deploymentId = verticle.deploymentID();
-                vertx.undeploy(verticle.deploymentID())
-                        .onSuccess(ignore -> {
-                            unregisterVerticle(tenant, importConfigId);
-                            promise.complete("Un-deployed verticle [" + deploymentId + "] for import config [" + importConfigId + "].");
-                        })
-                        .onFailure(err -> promise.fail("Failed to undeploy verticle " + err.getMessage()));
-            } catch (Exception e) {
-                logger.error("Error attempting to undeploy import verticle for tenant [" + tenant + "] and import config [" + importConfigId + "].");
-                promise.fail("Error attempting to undeploy import verticle for import config [" + importConfigId + "].");
-            }
-            verticle.getJob(false).onSuccess(job -> job.updater.clearTurnstile());
+            verticle.importJob.halt();
+            promise.complete("Job paused for import config [" + importConfigId + "].");
         } else {
-            promise.complete("Currently no running verticle found to un-deploy for import config [" + importConfigId + "].");
+            promise.complete("Currently no running verticle found to pause for import config [" + importConfigId + "].");
         }
         return promise.future();
     }
@@ -78,26 +75,28 @@ public class XmlFilesImportVerticle extends AbstractVerticle {
         return fileImportVerticles.get(tenant).get(importConfigId);
     }
 
-    static void unregisterVerticle(String tenant, String importConfigId) {
-        fileImportVerticles.putIfAbsent(tenant, new ConcurrentHashMap<>());
-        fileImportVerticles.get(tenant).remove(importConfigId);
-    }
-
-
     @Override
     public void start() {
         logger.info("Starting file processor for tenant [" + tenant + "] and job configuration ID [" + importConfigurationId + "].");
         vertx.setPeriodic(200, (r) -> {
-            File currentFile = getNextFileIfPossible();
-            if (currentFile != null) {  // null if queue is empty or a previous file is still processing
-                boolean activating = fileQueue.passive.getAndSet(false); // check if job was passive before this file
-                // Use existing job or instantiate new.
-                getJob(activating)
-                        .compose(job -> job.processFile(currentFile))
-                        .onComplete(na -> fileQueue.deleteFile(currentFile))
-                        .onFailure(f -> logger.error("Error processing file: " + f.getMessage()));
+            if (!importJobHalted()) {
+                File currentFile = getNextFileIfPossible();
+                if (currentFile != null) {  // null if queue is empty or a previous file is still processing
+                    boolean activating = fileQueue.passive.getAndSet(false); // check if job was passive before this file
+                    // Use existing job or instantiate new.
+                    getJob(activating)
+                            .compose(job -> job.processFile(currentFile))
+                            .onComplete(na -> fileQueue.deleteFile(currentFile))
+                            .onFailure(f -> logger.error("Error processing file: " + f.getMessage()));
+                }
+            } else {
+                logger.info("Job halted");
             }
         });
+    }
+
+    private boolean importJobHalted () {
+        return importJob != null && importJob.halted();
     }
 
     public File getNextFileIfPossible () {

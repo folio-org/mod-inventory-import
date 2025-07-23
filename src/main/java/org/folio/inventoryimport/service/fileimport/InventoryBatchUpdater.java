@@ -20,7 +20,6 @@ public class InventoryBatchUpdater implements RecordReceiver {
     private final Turnstile turnstile = new Turnstile();
     public static final Logger logger = LogManager.getLogger("InventoryBatchUpdater");
 
-
     public InventoryBatchUpdater(ImportJob importJob, RoutingContext routingContext) {
         updateClient = InventoryUpdateClient.getClient(routingContext);
         this.job = importJob;
@@ -44,20 +43,18 @@ public class InventoryBatchUpdater implements RecordReceiver {
     }
 
     private void releaseBatch(BatchOfRecords batch) {
-        turnstile.enterBatch(batch);
-        persistBatch().onFailure(na -> {
-            turnstile.exitBatch();
-            logger.error("Unexpected error during upsert " + na.getMessage());
-        }).onSuccess(na -> turnstile.exitBatch());
+        if (!job.halted()) {
+            turnstile.enterBatch(batch);
+            persistBatch().onFailure(na -> {
+                logger.error("Fatal error during upsert. Halting job. " + na.getMessage());
+                job.halt();
+            }).onComplete(na -> turnstile.exitBatch());
+        }
     }
 
     @Override
     public void endOfDocument() {
         put(null);
-    }
-
-    public void clearTurnstile() {
-        turnstile.clear();
     }
 
     /**
@@ -82,7 +79,7 @@ public class InventoryBatchUpdater implements RecordReceiver {
                         reportEndOfFile();
                     }
                     promise.complete();
-                });
+                }).onFailure(handler -> promise.fail("Fatal error: " + handler.getMessage()));
             } else { // we get here when the last set of records is exactly 100. We just need to report
                 if (batch.isLastBatchOfFile()) {
                     reportEndOfFile();
@@ -121,18 +118,16 @@ public class InventoryBatchUpdater implements RecordReceiver {
             try {
                 turnstile.put(batch);
             } catch (InterruptedException ie) {
+                logger.error("Putting next batch in queue-of-one interrupted: ");
                 throw new RuntimeException("Putting next batch in queue-of-one interrupted: " + ie.getMessage());
             }
-        }
-
-        private void clear() {
-            turnstile.clear();
         }
 
         private void exitBatch() {
             try {
                 turnstile.take();
             } catch (InterruptedException ie) {
+                logger.error("Taking batch from queue-of-one interrupted: ");
                 throw new RuntimeException("Taking batch from queue-of-one interrupted: " + ie.getMessage());
             }
         }

@@ -21,6 +21,9 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.*;
 
+/**
+ * An XSLT transformation pipeline with an XML to JSON conversion at the end
+ */
 public class TransformationPipeline implements RecordReceiver {
 
     private final List<Templates> listOfTemplates = new ArrayList<>();
@@ -33,11 +36,10 @@ public class TransformationPipeline implements RecordReceiver {
         setTemplates(transformation);
     }
 
-    public TransformationPipeline setTarget(RecordReceiver target) {
+    public void setTarget(RecordReceiver target) {
         this.target = target;
         records = 0;
         transformationTime = 0;
-        return this;
     }
 
     public static Future<TransformationPipeline> create(Vertx vertx, String tenant, UUID transformationId) {

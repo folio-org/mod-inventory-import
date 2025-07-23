@@ -17,7 +17,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.UUID;
 
-
+/**
+ * An ImportJob has the following components, listed in the order of processing
+ *   <li>a queue of source files (in VertX file system, synchronous access)</li>
+ *   <li>a SAX parser splitting a file of records into individual xml records (synchronous)</li>
+ *   <li>an XSLT transformation pipeline and an XML to JSON converter, handling individual xml records (synchronous)</li>
+ *   <li>a client that collects records into sets of 100 json objects and pushes the result to Inventory Update, one batch at a time (asynchronous)</li>
+ * <p/>The ImportJob additionally uses a logging component for reporting status and errors.
+ */
 public class ImportJob {
     final UUID importConfigId;
     org.folio.inventoryimport.moduledata.ImportJob importJob;
@@ -27,6 +34,9 @@ public class ImportJob {
     InventoryBatchUpdater updater;
     final Vertx vertx;
     final ModuleStorageAccess configStorage;
+
+    private boolean halted = false;
+
     public static final Logger logger = LogManager.getLogger("ImportJob");
 
 
@@ -57,13 +67,18 @@ public class ImportJob {
         importJob.logFinishTime(SettableClock.getLocalDateTime(), configStorage);
     }
 
+    /**
+     * Reads XML file, splits it into individual records that are forwarded to the transformation pipeline, which in turn forwards the result to the inventory update client.
+     * @param xmlFile an XML file containing a `collection` of 0 or more `record`s
+     * @return future completion of the file import
+     */
     Future<Void> processFile(File xmlFile) {
         Promise<Void> promise = Promise.promise();
         try {
             reporting.nowProcessing(xmlFile.getName());
             String xmlFileContents = Files.readString(xmlFile.toPath(), StandardCharsets.UTF_8);
             vertx.executeBlocking(new XmlRecordsFromFile(xmlFileContents).setTarget(transformationPipeline))
-                            .onComplete(processing -> {
+                    .onComplete(processing -> {
                                 if (processing.succeeded()) {
                                     promise.complete();
                                 } else {
@@ -86,6 +101,18 @@ public class ImportJob {
      */
     public boolean resumeHaltedProcessing() {
         return fileQueue.processingSlotTaken() && updater.noPendingBatches(10);
+    }
+
+    public boolean halted () {
+        return halted;
+    }
+
+    public void halt() {
+        halted=true;
+    }
+
+    public void resume() {
+        halted=false;
     }
 
     private Future<UUID> initiateJobLog (UUID importConfigId) {

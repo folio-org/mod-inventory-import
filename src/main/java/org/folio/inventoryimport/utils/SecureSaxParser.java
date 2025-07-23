@@ -15,14 +15,10 @@ public final class SecureSaxParser {
    * XML External Entity (XXE) vulnerabilities. It is not thread-safe.
    */
   public static SAXParser get() throws ParserConfigurationException, SAXException {
-    // Disable external access preventing XML External Entity (XXE) vulnerabilities
-    // https://www.owasp.org/index.php/XML_External_Entity_(XXE)_Prevention_Cheat_Sheet
-    // https://semgrep.dev/docs/cheat-sheets/java-xxeprevent
     SAXParserFactory factory = SAXParserFactory.newInstance();
     factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
     SAXParser saxParser = factory.newSAXParser();
     saxParser.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-    saxParser.setProperty(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
     return saxParser;
   }
 }

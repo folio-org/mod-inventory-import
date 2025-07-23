@@ -9,7 +9,6 @@ import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,13 +58,13 @@ public class XmlRecordsFromFile extends DefaultHandler implements RecordProvider
     }
 
     @Override
-    public void characters(char[] ch, int start, int length)  {
+    public void characters(char[] ch, int start, int length) {
         String text = new String(ch, start, length);
         record += EncodeXmlText.encodeXmlText(text);
     }
 
     @Override
-    public void endElement(String uri, String localName, String qName)  {
+    public void endElement(String uri, String localName, String qName) {
         if (record != null) {
             record += "</" + qName + ">";
             if (qName.equals("record")) {
