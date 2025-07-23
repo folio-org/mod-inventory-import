@@ -157,7 +157,7 @@ public class Reporting {
         return (hours>0 ? hours + " hours " : "") +  (hours>0 || minutes>0 ? minutes  + " minutes " : "") + seconds + " seconds";
     }
 
-    private Future<Void> log (String statement) {
+    public Future<Void> log (String statement) {
         List<Entity> lines = new ArrayList<>();
         lines.add(new LogLine(
                 UUID.randomUUID(),

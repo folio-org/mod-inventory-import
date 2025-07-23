@@ -47,6 +47,7 @@ public class InventoryBatchUpdater implements RecordReceiver {
             turnstile.enterBatch(batch);
             persistBatch().onFailure(na -> {
                 logger.error("Fatal error during upsert. Halting job. " + na.getMessage());
+                job.reporting.log("Fatal error during upsert. Halting job. " + na.getMessage());
                 job.halt();
             }).onComplete(na -> turnstile.exitBatch());
         }
