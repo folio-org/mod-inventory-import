@@ -14,15 +14,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class InventoryBatchUpdater implements RecordReceiver {
 
-    private final ImportJob job;
+    private final FileProcessor job;
     private final ArrayList<ProcessingRecord> records = new ArrayList<>();
     private final InventoryUpdateClient updateClient;
     private final Turnstile turnstile = new Turnstile();
     public static final Logger logger = LogManager.getLogger("InventoryBatchUpdater");
 
-    public InventoryBatchUpdater(ImportJob importJob, RoutingContext routingContext) {
+    public InventoryBatchUpdater(FileProcessor fileProcessor, RoutingContext routingContext) {
         updateClient = InventoryUpdateClient.getClient(routingContext);
-        this.job = importJob;
+        this.job = fileProcessor.withInventoryUpdater(this);
     }
 
     @Override
@@ -43,12 +43,12 @@ public class InventoryBatchUpdater implements RecordReceiver {
     }
 
     private void releaseBatch(BatchOfRecords batch) {
-        if (!job.halted()) {
+        if (!job.paused()) {
             turnstile.enterBatch(batch);
             persistBatch().onFailure(na -> {
                 logger.error("Fatal error during upsert. Halting job. " + na.getMessage());
                 job.reporting.log("Fatal error during upsert. Halting job. " + na.getMessage());
-                job.halt();
+                job.pause();
             }).onComplete(na -> turnstile.exitBatch());
         }
     }
@@ -60,7 +60,7 @@ public class InventoryBatchUpdater implements RecordReceiver {
 
     /**
      * This is the last function of the import pipeline, and since it's asynchronous
-     * it must be in charge of when to invoke reporting. The job handling verticle will not
+     * it must be in charge of when to invoke results reporting. The file listening verticle will not
      * know when the last upsert of a source file of records is done, for example.
      */
     private Future<Void> persistBatch() {
@@ -145,7 +145,6 @@ public class InventoryBatchUpdater implements RecordReceiver {
                     return true;
                 }
             } else {
-                logger.info("Turnstile not empty");
                 turnstileEmptyChecks.set(0);
             }
             return false;

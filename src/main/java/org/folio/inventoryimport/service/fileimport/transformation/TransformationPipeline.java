@@ -36,7 +36,7 @@ public class TransformationPipeline implements RecordReceiver {
         setTemplates(transformation);
     }
 
-    public void setTarget(RecordReceiver target) {
+    public void withTarget(RecordReceiver target) {
         this.target = target;
         records = 0;
         transformationTime = 0;

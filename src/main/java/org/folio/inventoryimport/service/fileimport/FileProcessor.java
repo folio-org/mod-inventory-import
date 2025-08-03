@@ -7,6 +7,7 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.moduledata.ImportConfig;
+import org.folio.inventoryimport.moduledata.ImportJob;
 import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
 import org.folio.inventoryimport.service.fileimport.transformation.TransformationPipeline;
 import org.folio.inventoryimport.utils.SettableClock;
@@ -18,49 +19,70 @@ import java.nio.file.Files;
 import java.util.UUID;
 
 /**
- * An ImportJob has the following components, listed in the order of processing
+ * File processing is made up of following components, listed in the order of processing
  *   <li>a queue of source files (in VertX file system, synchronous access)</li>
+ *   <li>a file listener (a verticle) that feeds files from the queue to the processor</li>
  *   <li>a SAX parser splitting a file of records into individual xml records (synchronous)</li>
  *   <li>an XSLT transformation pipeline and an XML to JSON converter, handling individual xml records (synchronous)</li>
  *   <li>a client that collects records into sets of 100 json objects and pushes the result to Inventory Update, one batch at a time (asynchronous)</li>
- * <p/>The ImportJob additionally uses a logging component for reporting status and errors.
+ * <p/>The import process additionally uses a logging component for reporting status and errors.
  */
-public class ImportJob {
+public class FileProcessor {
     final UUID importConfigId;
-    org.folio.inventoryimport.moduledata.ImportJob importJob;
+    ImportJob importJob;
     Reporting reporting;
-    FileQueue fileQueue;
+    FileListener fileListener;
     TransformationPipeline transformationPipeline;
     InventoryBatchUpdater updater;
     final Vertx vertx;
     final ModuleStorageAccess configStorage;
 
-    private boolean halted = false;
+    private boolean paused = false;
 
     public static final Logger logger = LogManager.getLogger("ImportJob");
 
-
-    private ImportJob(Vertx vertx, String tenant, UUID importConfigId) {
+    private FileProcessor(Vertx vertx, String tenant, UUID importConfigId) {
         this.vertx = vertx;
         this.importConfigId = importConfigId;
         this.configStorage = new ModuleStorageAccess(vertx, tenant);
+        this.reporting = new Reporting(this, tenant, vertx);
     }
 
-    public static Future<ImportJob> instantiateJob (String tenant, UUID jobConfigId, FileQueue fileQueue, Vertx vertx, RoutingContext routingContext) {
-        ImportJob job = new ImportJob(vertx, tenant, jobConfigId);
-        job.fileQueue = fileQueue;                          // Handle to source files in vertx file system
-        job.reporting = new Reporting(job, tenant, vertx); // Logging progress and results
-        job.updater = new InventoryBatchUpdater(job, routingContext); // Batching and persisting records in inventory.
-        return job.initiateJobLog(jobConfigId)
-                .compose(na -> job.getTransformationPipeline(tenant, jobConfigId, vertx))
-                .compose(na -> Future.succeededFuture(job));
+    public FileProcessor forFileListener(FileListener fileListener) {
+        this.fileListener = fileListener;
+        return this;
+    }
+
+    public FileProcessor withInventoryUpdater(InventoryBatchUpdater updater) {
+        this.updater = updater;
+        return this;
+    }
+
+    /**
+     * Attaches a file processor to the file listener, a job log and a transformation pipeline to the file processor,
+     * and an inventory batch updater to the transformation pipeline.
+     * @return a file processor for the listener, with a transformation pipeline and an inventory updater.
+     */
+    public static Future<FileProcessor> initiateJob(String tenant, UUID jobConfigId, FileListener fileListener, Vertx vertx,
+                                                    RoutingContext routingContext) {
+        return Future.succeededFuture(new FileProcessor(vertx, tenant, jobConfigId).forFileListener(fileListener))
+                .compose(job -> job.withJobLog(jobConfigId)
+                        .compose(na -> job.withTransformationPipeline(tenant, jobConfigId, vertx))
+                        .compose(transformationPipeline -> {
+                            transformationPipeline.withTarget(new InventoryBatchUpdater(job, routingContext));
+                            return Future.succeededFuture(job);
+                        })
+                );
     }
 
     public boolean fileQueueDone(boolean atEndOfCurrentFile) {
-        if (atEndOfCurrentFile && !fileQueue.hasNextFile() && !reporting.pendingFileStats()) {
-            fileQueue.passive.set(true);
+        if (atEndOfCurrentFile && fileListener.fileQueueIsEmpty()) {
+            if (reporting.pendingFileStats()) {
+                logger.warn("Marking queue done with some file statistics still pending.");
+            }
+            fileListener.markFileQueuePassive();
         }
-        return fileQueue.passive.get();
+        return fileListener.fileQueueIsPassive();
     }
 
     public void setFinishedDateTime() {
@@ -68,7 +90,7 @@ public class ImportJob {
     }
 
     /**
-     * Reads XML file, splits it into individual records that are forwarded to the transformation pipeline, which in turn forwards the result to the inventory update client.
+     * Reads XML file and splits it into individual records that are forwarded to the transformation pipeline.
      * @param xmlFile an XML file containing a `collection` of 0 or more `record`s
      * @return future completion of the file import
      */
@@ -77,7 +99,7 @@ public class ImportJob {
         try {
             reporting.nowProcessing(xmlFile.getName());
             String xmlFileContents = Files.readString(xmlFile.toPath(), StandardCharsets.UTF_8);
-            vertx.executeBlocking(new XmlRecordsFromFile(xmlFileContents).setTarget(transformationPipeline))
+            vertx.executeBlocking(new XmlRecordsReader(xmlFileContents, transformationPipeline))
                     .onComplete(processing -> {
                                 if (processing.succeeded()) {
                                     promise.complete();
@@ -100,37 +122,36 @@ public class ImportJob {
      * for `idlingChecksThreshold` consecutive checks
      */
     public boolean resumeHaltedProcessing() {
-        return fileQueue.processingSlotTaken() && updater.noPendingBatches(10);
+        return fileListener.processingSlotIsOccupied() && updater.noPendingBatches(10);
     }
 
-    public boolean halted () {
-        return halted;
+    public boolean paused() {
+        return paused;
     }
 
-    public void halt() {
-        halted=true;
+    public void pause() {
+        paused = true;
     }
 
     public void resume() {
-        halted=false;
+        paused = false;
     }
 
-    private Future<UUID> initiateJobLog (UUID importConfigId) {
+    private Future<UUID> withJobLog(UUID importConfigId) {
         return configStorage.getEntity(importConfigId, new ImportConfig())
                 .compose(importConfig -> {
-                    importJob = new org.folio.inventoryimport.moduledata.ImportJob().fromImportConfig((ImportConfig) importConfig);
+                    importJob = new ImportJob().fromImportConfig((ImportConfig) importConfig);
                     return configStorage.storeEntity(importJob);
                 });
     }
 
-    private Future<TransformationPipeline> getTransformationPipeline(String tenant, UUID importConfigId, Vertx vertx) {
+    private Future<TransformationPipeline> withTransformationPipeline(String tenant, UUID importConfigId, Vertx vertx) {
         Promise<TransformationPipeline> promise = Promise.promise();
         new ModuleStorageAccess(vertx, tenant).getEntity(importConfigId,new ImportConfig())
                 .map(cfg -> ((ImportConfig) cfg).record.transformationId())
                 .compose(transformationId -> TransformationPipeline.create(vertx, tenant, transformationId))
                 .onComplete(pipelineBuild -> {
                     transformationPipeline = pipelineBuild.result();
-                    transformationPipeline.setTarget(updater);
                     promise.complete(pipelineBuild.result());
                 });
         return promise.future();

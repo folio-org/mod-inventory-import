@@ -15,19 +15,15 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Callable;
 
-public class XmlRecordsFromFile extends DefaultHandler implements RecordProvider, Callable<Void> {
+public class XmlRecordsReader extends DefaultHandler implements RecordProvider, Callable<Void> {
     String record=null;
     RecordReceiver target;
     final String xmlCollectionOfRecords;
     public static final Logger logger = LogManager.getLogger("XmlRecordsFromFile");
 
-    public XmlRecordsFromFile(String recordsSource) {
+    public XmlRecordsReader(String recordsSource, RecordReceiver target) {
         this.xmlCollectionOfRecords = recordsSource;
-    }
-
-    public XmlRecordsFromFile setTarget (RecordReceiver target) {
         this.target = target;
-        return this;
     }
 
     @Override

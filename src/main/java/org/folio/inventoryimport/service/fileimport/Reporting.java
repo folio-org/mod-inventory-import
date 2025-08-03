@@ -28,13 +28,13 @@ public class Reporting {
     private final InventoryMetrics inventoryMetrics = new InventoryMetrics();
     private final BlockingQueue<FileStats> fileStats = new ArrayBlockingQueue<>(2);
     private final ModuleStorageAccess storage;
-    private final ImportJob importJob;
+    private final FileProcessor fileProcessor;
 
     public static final Logger logger = LogManager.getLogger("reporting");
 
 
-    public Reporting(ImportJob handler, String tenant, Vertx vertx) {
-        this.importJob = handler;
+    public Reporting(FileProcessor handler, String tenant, Vertx vertx) {
+        this.fileProcessor = handler;
         this.startTime = System.currentTimeMillis();
         this.storage = new ModuleStorageAccess(vertx, tenant);
     }
@@ -100,7 +100,7 @@ public class Reporting {
                 (recordsProcessed.get() * 1000L / processingTime) + " recs/s.)")
                 .compose(na -> queueDone ? log(inventoryMetrics.report()) : null);
         if (queueDone) {
-            importJob.setFinishedDateTime();
+            fileProcessor.setFinishedDateTime();
 
             logger.info("Done processing queue. " + filesProcessed + " file(s) with " + recordsProcessed.get() +
                     " records processed in " + processingTimeAsString(processingTime) + " (" +
@@ -117,9 +117,9 @@ public class Reporting {
                     batch.getErrors().stream()
                             .map(error -> ((JsonObject) error))
                             .map(error -> new RecordFailure(UUID.randomUUID(),
-                                    importJob.importJob.record.id(),
-                                    importJob.importConfigId,
-                                    importJob.importJob.record.importConfigName(),
+                                    fileProcessor.importJob.record.id(),
+                                    fileProcessor.importConfigId,
+                                    fileProcessor.importJob.record.importConfigName(),
                                     getInstanceHridFromErrorResponse(error),
                                     SettableClock.getLocalDateTime().toString(),
                                     getBatchIndexFromErrorResponse(error) == null ? null : batch.get(getBatchIndexFromErrorResponse(error)).getOriginalRecordAsString(),
@@ -161,9 +161,9 @@ public class Reporting {
         List<Entity> lines = new ArrayList<>();
         lines.add(new LogLine(
                 UUID.randomUUID(),
-                importJob.importJob.record.id(),
+                fileProcessor.importJob.record.id(),
                 SettableClock.getLocalDateTime().toString(),
-                importJob.importJob.record.importConfigName(),
+                fileProcessor.importJob.record.importConfigName(),
                 statement));
         return storage.storeEntities(new LogLine(),lines);
     }

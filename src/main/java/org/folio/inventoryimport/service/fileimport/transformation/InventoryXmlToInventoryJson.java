@@ -1,6 +1,5 @@
 package org.folio.inventoryimport.service.fileimport.transformation;
 
-
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.logging.log4j.LogManager;

@@ -21,8 +21,10 @@ import org.folio.inventoryimport.moduledata.*;
 import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
 import org.folio.inventoryimport.moduledata.database.SqlQuery;
 import org.folio.inventoryimport.moduledata.database.Tables;
+import org.folio.inventoryimport.service.fileimport.FileProcessor;
 import org.folio.inventoryimport.service.fileimport.FileQueue;
-import org.folio.inventoryimport.service.fileimport.XmlFilesImportVerticle;
+import org.folio.inventoryimport.service.fileimport.FileListeners;
+import org.folio.inventoryimport.service.fileimport.XmlFileListener;
 import org.folio.inventoryimport.utils.Miscellaneous;
 import org.folio.inventoryimport.utils.SettableClock;
 import org.folio.tlib.RouterCreator;
@@ -85,8 +87,9 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         // Processing
         handler(vertx, routerBuilder, "purgeAgedLogs", this::purgeAgedLogs);
         handler(vertx, routerBuilder, "importXmlRecords", this::stageXmlSourceFile);
-        handler(vertx, routerBuilder, "startImportVerticle", this::ensureRunningImportVerticle);
-        handler(vertx, routerBuilder, "stopImportVerticle", this::pauseImportVerticle);
+        handler(vertx, routerBuilder, "startFileListener", this::activateFileListener);
+        handler(vertx, routerBuilder, "pauseImport", this::pauseImportJob);
+        handler(vertx, routerBuilder, "resumeImport", this::resumeImportJob);
     }
 
     private void exceptionResponse(Throwable cause, RoutingContext routingContext) {
@@ -471,27 +474,27 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         String fileName = routingContext.queryParam("filename").stream().findFirst().orElse(UUID.randomUUID() + ".xml");
         Buffer xmlContent = Buffer.buffer(routingContext.body().asString());
 
-        return ensureRunningImportVerticle(vertx, tenant, importConfigId, routingContext)
+        return activateFileListener(vertx, tenant, importConfigId, routingContext)
                 .onSuccess(ignore -> {
                     new FileQueue(vertx, tenant, importConfigId).addNewFile(fileName, xmlContent);
                     responseText(routingContext, 200).end("File queued for processing in ms " + (System.currentTimeMillis() - fileStartTime));
                 }).mapEmpty();
     }
 
-    private Future<Void> ensureRunningImportVerticle(Vertx vertx, RoutingContext routingContext) {
+    private Future<Void> activateFileListener(Vertx vertx, RoutingContext routingContext) {
         String tenant = TenantUtil.tenant(routingContext);
         String importConfigId = routingContext.pathParam("id");
-        return ensureRunningImportVerticle(vertx, tenant, importConfigId, routingContext)
+        return activateFileListener(vertx, tenant, importConfigId, routingContext)
                 .onSuccess(response -> responseText(routingContext, 200).end(response)).mapEmpty();
     }
 
-    private Future<String> ensureRunningImportVerticle(Vertx vertx, String tenant, String importConfigId, RoutingContext routingContext) {
+    private Future<String> activateFileListener(Vertx vertx, String tenant, String importConfigId, RoutingContext routingContext) {
         Promise<String> promise = Promise.promise();
         new ModuleStorageAccess(vertx, tenant).getEntity(UUID.fromString(importConfigId), new ImportConfig())
                 .onSuccess(cfg -> {
                     if (cfg != null) {
-                        XmlFilesImportVerticle
-                                .deployOrResume(vertx, tenant, importConfigId, routingContext)
+                        XmlFileListener
+                                .deployIfNotDeployed(vertx, tenant, importConfigId, routingContext)
                                 .onSuccess(promise::complete);
                     } else {
                         promise.fail("Could not find import config with id [" + importConfigId + "] found.");
@@ -500,12 +503,39 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         return promise.future();
     }
 
-    private Future<Void> pauseImportVerticle(Vertx vertx, RoutingContext routingContext) {
+    private Future<Void> pauseImportJob(Vertx vertx, RoutingContext routingContext) {
         String tenant = TenantUtil.tenant(routingContext);
         String importConfigId = routingContext.pathParam("id");
-        return XmlFilesImportVerticle.haltIfDeployed(tenant, importConfigId)
-                .onSuccess(outcome -> responseText(routingContext, 200).end(outcome))
-                .mapEmpty();
+        if (FileListeners.hasFileListener(tenant, importConfigId)) {
+            FileProcessor job = FileListeners.getFileListener(tenant, importConfigId).getImportJob();
+            if (job.paused()) {
+                responseText(routingContext, 200).end("File listener already paused for import config [" + importConfigId + "].");
+            } else {
+                job.pause();
+                responseText(routingContext, 200).end("Processing paused for import config [" + importConfigId + "].");
+            }
+        } else {
+            responseText(routingContext, 200).end("Currently no running import process found to pause for import config [" + importConfigId + "].");
+        }
+        return Future.succeededFuture();
+    }
+
+    private Future<Void> resumeImportJob(Vertx vertx, RoutingContext routingContext) {
+        String tenant = TenantUtil.tenant(routingContext);
+        String importConfigId = routingContext.pathParam("id");
+        if (FileListeners.hasFileListener(tenant, importConfigId)) {
+            FileProcessor job = FileListeners.getFileListener(tenant, importConfigId).getImportJob();
+            if (job.paused()) {
+                job.resume();
+                responseText(routingContext, 200).end("Processing resumed for import config [" + importConfigId + "].");
+            } else {
+                responseText(routingContext, 200).end("File listener already active for import config [" + importConfigId + "].");
+            }
+        } else {
+            responseText(routingContext, 200).end("Currently no running import process found to resume for import config [" + importConfigId + "].");
+        }
+        return Future.succeededFuture();
+
     }
 
     private void handler(Vertx vertx, RouterBuilder routerBuilder, String operation,
