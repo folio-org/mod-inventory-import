@@ -11,6 +11,7 @@ import org.folio.inventoryimport.moduledata.Entity;
 import org.folio.inventoryimport.moduledata.Step;
 import org.folio.inventoryimport.moduledata.TransformationStep;
 import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
+import org.folio.inventoryimport.service.fileimport.InventoryBatchUpdater;
 import org.folio.inventoryimport.service.fileimport.RecordReceiver;
 import org.folio.inventoryimport.service.fileimport.ProcessingRecord;
 
@@ -27,7 +28,7 @@ import java.util.*;
 public class TransformationPipeline implements RecordReceiver {
 
     private final List<Templates> listOfTemplates = new ArrayList<>();
-    private RecordReceiver target;
+    public RecordReceiver inventoryUpdater;
     private int records = 0;
     private long transformationTime = 0;
     public static final Logger logger = LogManager.getLogger("TransformationPipeline");
@@ -36,10 +37,14 @@ public class TransformationPipeline implements RecordReceiver {
         setTemplates(transformation);
     }
 
-    public void withTarget(RecordReceiver target) {
-        this.target = target;
+    public void withTarget(RecordReceiver inventoryUpdater) {
+        this.inventoryUpdater = inventoryUpdater;
         records = 0;
         transformationTime = 0;
+    }
+
+    public InventoryBatchUpdater getUpdater() {
+        return (InventoryBatchUpdater) inventoryUpdater;
     }
 
     public static Future<TransformationPipeline> create(Vertx vertx, String tenant, UUID transformationId) {
@@ -117,12 +122,12 @@ public class TransformationPipeline implements RecordReceiver {
         String jsonRecord = convertToJson(transformedXmlRecord);
         record.update(jsonRecord);
         transformationTime += (System.currentTimeMillis() - transformationStarted);
-        target.put(record);
+        inventoryUpdater.put(record);
     }
 
     @Override
     public void endOfDocument() {
-        target.endOfDocument();
+        inventoryUpdater.endOfDocument();
     }
 
     public long transformationTime() {

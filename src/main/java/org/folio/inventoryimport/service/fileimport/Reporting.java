@@ -63,6 +63,10 @@ public class Reporting {
         if (fileStats.peek()!=null) fileStats.peek().incrementRecordsProcessed(delta);
     }
 
+    public int getRecordsProcessed() {
+        return recordsProcessed.get();
+    }
+
     /**
      * Reports at end-of-current file
      */
@@ -100,7 +104,7 @@ public class Reporting {
                 (recordsProcessed.get() * 1000L / processingTime) + " recs/s.)")
                 .compose(na -> queueDone ? log(inventoryMetrics.report()) : null);
         if (queueDone) {
-            fileProcessor.setFinishedDateTime();
+            fileProcessor.logFinish(recordsProcessed.get());
 
             logger.info("Done processing queue. " + filesProcessed + " file(s) with " + recordsProcessed.get() +
                     " records processed in " + processingTimeAsString(processingTime) + " (" +

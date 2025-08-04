@@ -33,7 +33,6 @@ public class FileProcessor {
     Reporting reporting;
     FileListener fileListener;
     TransformationPipeline transformationPipeline;
-    InventoryBatchUpdater updater;
     final Vertx vertx;
     final ModuleStorageAccess configStorage;
 
@@ -48,14 +47,27 @@ public class FileProcessor {
         this.reporting = new Reporting(this, tenant, vertx);
     }
 
+    /**
+     * Sets the file processor that the file listener forwards files to.
+     */
     public FileProcessor forFileListener(FileListener fileListener) {
         this.fileListener = fileListener;
         return this;
     }
 
-    public FileProcessor withInventoryUpdater(InventoryBatchUpdater updater) {
-        this.updater = updater;
-        return this;
+    private Future<Void> withJobLog(UUID importConfigId) {
+        return configStorage.getEntity(importConfigId, new ImportConfig())
+                .compose(importConfig -> {
+                    importJob = new ImportJob().initiate((ImportConfig) importConfig);
+                    return configStorage.storeEntity(importJob);
+                }).mapEmpty();
+    }
+
+    private Future<TransformationPipeline> withTransformationPipeline(String tenant, UUID importConfigId, Vertx vertx) {
+        return new ModuleStorageAccess(vertx, tenant).getEntity(importConfigId,new ImportConfig())
+                .map(cfg -> ((ImportConfig) cfg).record.transformationId())
+                .compose(transformationId -> TransformationPipeline.create(vertx, tenant, transformationId))
+                .onComplete(pipelineCreated -> transformationPipeline = pipelineCreated.result());
     }
 
     /**
@@ -66,11 +78,11 @@ public class FileProcessor {
     public static Future<FileProcessor> initiateJob(String tenant, UUID jobConfigId, FileListener fileListener, Vertx vertx,
                                                     RoutingContext routingContext) {
         return Future.succeededFuture(new FileProcessor(vertx, tenant, jobConfigId).forFileListener(fileListener))
-                .compose(job -> job.withJobLog(jobConfigId)
-                        .compose(na -> job.withTransformationPipeline(tenant, jobConfigId, vertx))
-                        .compose(transformationPipeline -> {
-                            transformationPipeline.withTarget(new InventoryBatchUpdater(job, routingContext));
-                            return Future.succeededFuture(job);
+                .compose(processor -> processor.withJobLog(jobConfigId)
+                        .compose(v -> processor.withTransformationPipeline(tenant, jobConfigId, vertx))
+                        .compose(transformer -> {
+                            transformer.withTarget(new InventoryBatchUpdater(routingContext).forFileProcessor(processor));
+                            return Future.succeededFuture(processor);
                         })
                 );
     }
@@ -85,8 +97,8 @@ public class FileProcessor {
         return fileListener.fileQueueIsPassive();
     }
 
-    public void setFinishedDateTime() {
-        importJob.logFinishTime(SettableClock.getLocalDateTime(), configStorage);
+    public void logFinish(int recordCount) {
+        importJob.logFinish(SettableClock.getLocalDateTime(), recordCount, configStorage);
     }
 
     /**
@@ -122,7 +134,7 @@ public class FileProcessor {
      * for `idlingChecksThreshold` consecutive checks
      */
     public boolean resumeHaltedProcessing() {
-        return fileListener.processingSlotIsOccupied() && updater.noPendingBatches(10);
+        return fileListener.processingSlotIsOccupied() && transformationPipeline.getUpdater().noPendingBatches(10);
     }
 
     public boolean paused() {
@@ -131,30 +143,14 @@ public class FileProcessor {
 
     public void pause() {
         paused = true;
+        importJob.logStatus(ImportJob.JobStatus.PAUSED,reporting.getRecordsProcessed(),configStorage);
+        reporting.log("Job paused");
+        reporting.reportFileStats();
     }
 
     public void resume() {
+        importJob.logStatus(ImportJob.JobStatus.RUNNING,reporting.getRecordsProcessed(),configStorage);
         paused = false;
-    }
-
-    private Future<UUID> withJobLog(UUID importConfigId) {
-        return configStorage.getEntity(importConfigId, new ImportConfig())
-                .compose(importConfig -> {
-                    importJob = new ImportJob().fromImportConfig((ImportConfig) importConfig);
-                    return configStorage.storeEntity(importJob);
-                });
-    }
-
-    private Future<TransformationPipeline> withTransformationPipeline(String tenant, UUID importConfigId, Vertx vertx) {
-        Promise<TransformationPipeline> promise = Promise.promise();
-        new ModuleStorageAccess(vertx, tenant).getEntity(importConfigId,new ImportConfig())
-                .map(cfg -> ((ImportConfig) cfg).record.transformationId())
-                .compose(transformationId -> TransformationPipeline.create(vertx, tenant, transformationId))
-                .onComplete(pipelineBuild -> {
-                    transformationPipeline = pipelineBuild.result();
-                    promise.complete(pipelineBuild.result());
-                });
-        return promise.future();
     }
 
 }

@@ -14,15 +14,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class InventoryBatchUpdater implements RecordReceiver {
 
-    private final FileProcessor job;
+    private FileProcessor job;
     private final ArrayList<ProcessingRecord> records = new ArrayList<>();
     private final InventoryUpdateClient updateClient;
     private final Turnstile turnstile = new Turnstile();
     public static final Logger logger = LogManager.getLogger("InventoryBatchUpdater");
 
-    public InventoryBatchUpdater(FileProcessor fileProcessor, RoutingContext routingContext) {
+    public InventoryBatchUpdater(RoutingContext routingContext) {
         updateClient = InventoryUpdateClient.getClient(routingContext);
-        this.job = fileProcessor.withInventoryUpdater(this);
+    }
+
+    /**
+     * Sets a reference back to the controller.
+      */
+    public InventoryBatchUpdater forFileProcessor(FileProcessor processor) {
+        job = processor;
+        return this;
     }
 
     @Override

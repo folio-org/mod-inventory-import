@@ -62,7 +62,11 @@ public class XmlFileListener extends FileListener {
                     // Continue existing job if any (not activating), or instantiate a new (activating).
                     getFileProcessor(activating)
                             .compose(job -> job.processFile(currentFile))
-                            .onComplete(na -> fileQueue.deleteFile(currentFile))
+                            .onComplete(na -> {
+                                if (!importJobPaused()) { // keep file to resume
+                                    fileQueue.deleteFile(currentFile);
+                                }
+                            })
                             .onFailure(f -> logger.error("Error processing file: " + f.getMessage()));
                 }
             }
