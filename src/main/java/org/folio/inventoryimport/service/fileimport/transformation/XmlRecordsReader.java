@@ -1,7 +1,10 @@
-package org.folio.inventoryimport.service.fileimport;
+package org.folio.inventoryimport.service.fileimport.transformation;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.inventoryimport.service.fileimport.ProcessingRecord;
+import org.folio.inventoryimport.service.fileimport.RecordProvider;
+import org.folio.inventoryimport.service.fileimport.RecordReceiver;
 import org.folio.inventoryimport.utils.SecureSaxParser;
 import org.folio.reservoir.util.EncodeXmlText;
 import org.xml.sax.Attributes;

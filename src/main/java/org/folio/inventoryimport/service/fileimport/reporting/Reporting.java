@@ -1,4 +1,4 @@
-package org.folio.inventoryimport.service.fileimport;
+package org.folio.inventoryimport.service.fileimport.reporting;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -9,6 +9,8 @@ import org.folio.inventoryimport.moduledata.Entity;
 import org.folio.inventoryimport.moduledata.LogLine;
 import org.folio.inventoryimport.moduledata.RecordFailure;
 import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
+import org.folio.inventoryimport.service.fileimport.BatchOfRecords;
+import org.folio.inventoryimport.service.fileimport.FileProcessor;
 import org.folio.inventoryimport.utils.SettableClock;
 
 import java.util.ArrayList;
@@ -121,9 +123,9 @@ public class Reporting {
                     batch.getErrors().stream()
                             .map(error -> ((JsonObject) error))
                             .map(error -> new RecordFailure(UUID.randomUUID(),
-                                    fileProcessor.importJob.record.id(),
-                                    fileProcessor.importConfigId,
-                                    fileProcessor.importJob.record.importConfigName(),
+                                    fileProcessor.getImportJob().record.id(),
+                                    fileProcessor.getImportConfigId(),
+                                    fileProcessor.getImportJob().record.importConfigName(),
                                     getInstanceHridFromErrorResponse(error),
                                     SettableClock.getLocalDateTime().toString(),
                                     getBatchIndexFromErrorResponse(error) == null ? null : batch.get(getBatchIndexFromErrorResponse(error)).getOriginalRecordAsString(),
@@ -165,9 +167,9 @@ public class Reporting {
         List<Entity> lines = new ArrayList<>();
         lines.add(new LogLine(
                 UUID.randomUUID(),
-                fileProcessor.importJob.record.id(),
+                fileProcessor.getImportJob().record.id(),
                 SettableClock.getLocalDateTime().toString(),
-                fileProcessor.importJob.record.importConfigName(),
+                fileProcessor.getImportJob().record.importConfigName(),
                 statement));
         return storage.storeEntities(new LogLine(),lines);
     }

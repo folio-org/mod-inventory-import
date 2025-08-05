@@ -1,4 +1,4 @@
-package org.folio.inventoryimport.service.fileimport;
+package org.folio.inventoryimport.service.fileimport.reporting;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -36,9 +36,5 @@ public class FileStats {
 
     public int getRecordsProcessed () {
         return recordsProcessed.get();
-    }
-
-    public String toString () {
-        return "Stats for " + fileName + ". Start time " + startTime;
     }
 }

@@ -6,6 +6,7 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.foliodata.InventoryUpdateClient;
+import org.folio.inventoryimport.service.fileimport.reporting.InventoryMetrics;
 
 import java.util.ArrayList;
 import java.util.concurrent.ArrayBlockingQueue;

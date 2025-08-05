@@ -9,7 +9,9 @@ import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.moduledata.ImportConfig;
 import org.folio.inventoryimport.moduledata.ImportJob;
 import org.folio.inventoryimport.moduledata.database.ModuleStorageAccess;
+import org.folio.inventoryimport.service.fileimport.reporting.Reporting;
 import org.folio.inventoryimport.service.fileimport.transformation.TransformationPipeline;
+import org.folio.inventoryimport.service.fileimport.transformation.XmlRecordsReader;
 import org.folio.inventoryimport.utils.SettableClock;
 
 import java.io.File;
@@ -153,4 +155,11 @@ public class FileProcessor {
         paused = false;
     }
 
+    public ImportJob getImportJob() {
+        return importJob;
+    }
+
+    public UUID getImportConfigId() {
+        return importConfigId;
+    }
 }

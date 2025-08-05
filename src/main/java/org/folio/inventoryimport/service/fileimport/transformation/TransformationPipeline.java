@@ -130,11 +130,4 @@ public class TransformationPipeline implements RecordReceiver {
         inventoryUpdater.endOfDocument();
     }
 
-    public long transformationTime() {
-        return transformationTime;
-    }
-
-    public int records() {
-        return records;
-    }
 }
