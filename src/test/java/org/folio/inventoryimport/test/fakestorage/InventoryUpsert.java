@@ -11,7 +11,12 @@ public class InventoryUpsert {
     protected void inventoryBatchUpsertHrid (RoutingContext routingContext) {
         JsonObject upsertBody = routingContext.body().asJsonObject();
         String title = upsertBody.getJsonArray("inventoryRecordSets").getJsonObject(0).getJsonObject("instance").getString("title");
-        if (title.equals("200")) {
+        try {
+            Thread.sleep(500); // Fake some response time
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        if (title.startsWith("200")) {
             respond(routingContext, JSON_SINGLE_RECORD_UPSERT_RESPONSE_200, 200);
         } else if (title.equals("207")) {
             respond(routingContext, JSON_SINGLE_RECORD_UPSERT_RESPONSE_207, 207);

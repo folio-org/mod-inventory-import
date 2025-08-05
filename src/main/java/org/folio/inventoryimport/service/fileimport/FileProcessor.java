@@ -90,10 +90,7 @@ public class FileProcessor {
     }
 
     public boolean fileQueueDone(boolean atEndOfCurrentFile) {
-        if (atEndOfCurrentFile && fileListener.fileQueueIsEmpty()) {
-            if (reporting.pendingFileStats()) {
-                logger.warn("Marking queue done with some file statistics still pending.");
-            }
+        if (atEndOfCurrentFile && fileListener.fileQueueIsEmpty() && !reporting.pendingFileStats()) {
             fileListener.markFileQueuePassive();
         }
         return fileListener.fileQueueIsPassive();

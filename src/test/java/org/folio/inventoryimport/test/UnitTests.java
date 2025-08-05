@@ -134,7 +134,24 @@ public class UnitTests {
                                 .setParam("http.socket.timeout", timeOutInMilliseconds)))
                 .build();
     }
-    
+
+    private void configureSamplePipeline() {
+        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG);
+
+        JsonObject step = new JsonObject();
+        step.put("id", STEP_ID)
+                .put("name", "test step")
+                .put("enabled", true)
+                .put("script", Files.XSLT_COPY_XML_DOC);
+        postJsonObject(PATH_STEPS, step);
+        JsonObject tsa = new JsonObject();
+        tsa.put("stepId", STEP_ID)
+                .put("transformationId", JSON_TRANSFORMATION_CONFIG.getString("id"))
+                .put("position", "1");
+        postJsonObject(PATH_TSAS, tsa);
+        postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
+    }
+
     @Test
     public void canPostAndGetTransformation() {
         JsonObject transformation = JSON_TRANSFORMATION_CONFIG;
@@ -322,32 +339,94 @@ public class UnitTests {
 
     @Test
     public void canImportSourceXml() {
-        postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG);
-
-        JsonObject step = new JsonObject();
-        step.put("id", STEP_ID)
-                .put("name", "test step")
-                .put("enabled", true)
-                .put("script", Files.XSLT_COPY_XML_DOC);
-        postJsonObject(PATH_STEPS, step);
-        JsonObject tsa = new JsonObject();
-        tsa.put("stepId", STEP_ID)
-                .put("transformationId", JSON_TRANSFORMATION_CONFIG.getString("id"))
-                .put("position", "1");
-        postJsonObject(PATH_TSAS, tsa);
-        postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
-
+        configureSamplePipeline();
         String importConfigId = JSON_IMPORT_CONFIG.getString("id");
         String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
 
         getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
         getRecordById(PATH_TRANSFORMATIONS, transformationId);
-        postSourceXml(BASE_PATH_IMPORT_XML_FILE + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_200);
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_200);
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
+    }
+
+    @Test
+    public void canImportMultipleSourceXml() {
+        configureSamplePipeline();
+        String importConfigId = JSON_IMPORT_CONFIG.getString("id");
+        String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
+        getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
+        getRecordById(PATH_TRANSFORMATIONS, transformationId);
+
+        Files.filesOfInventoryXmlRecords(5,100)
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
+        String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
+        getRecordById(PATH_IMPORT_JOBS, jobId).body("amountHarvested", is(500));
+    }
+
+    @Test
+    public void canPauseAndResumeImportJob() {
+        configureSamplePipeline();
+        String importConfigId = JSON_IMPORT_CONFIG.getString("id");
+        String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
+        getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
+        getRecordById(PATH_TRANSFORMATIONS, transformationId);
+
+        Files.filesOfInventoryXmlRecords(5,100)
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
+
+        given()
+                .port(Service.PORT_OKAPI)
+                .header(OKAPI_TENANT)
+                .header(OKAPI_URL)
+                .header(OKAPI_TOKEN)
+                .get(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/pause")
+                .then().statusCode(200)
+                .extract().response();
+
+        String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("status"), is("PAUSED"));
+        Integer amountHarvested = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("amountHarvested");
+        try { Thread.sleep(500);} catch (InterruptedException e) {throw new RuntimeException(e);}
+        getRecordById(PATH_IMPORT_JOBS, jobId).body("amountHarvested", is(amountHarvested));
+        getRecordById(PATH_IMPORT_JOBS, jobId).body("finished", is(nullValue()));
+
+        given()
+                .port(Service.PORT_OKAPI)
+                .header(OKAPI_TENANT)
+                .header(OKAPI_URL)
+                .header(OKAPI_TOKEN)
+                .get(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/resume")
+                .then().statusCode(200)
+                .extract().response();
+
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("status"), is("RUNNING"));
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
+        getRecordById(PATH_IMPORT_JOBS, jobId).body("amountHarvested", greaterThan(499));
+    }
+
+    @Test
+    public void canStartFileListener() {
+        configureSamplePipeline();
+        String importConfigId = JSON_IMPORT_CONFIG.getString("id");
+        given()
+                .port(Service.PORT_OKAPI)
+                .header(OKAPI_TENANT)
+                .header(OKAPI_URL)
+                .header(OKAPI_TOKEN)
+                .get(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/activate")
+                .then().statusCode(200)
+                .extract().response();
     }
 
     @Test
@@ -372,7 +451,7 @@ public class UnitTests {
 
         getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
         getRecordById(PATH_TRANSFORMATIONS, transformationId);
-        postSourceXml(BASE_PATH_IMPORT_XML_FILE + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_207);
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_207);
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
