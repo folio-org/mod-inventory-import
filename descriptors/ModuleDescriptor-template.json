@@ -127,7 +127,15 @@
           ]
         }, {
           "methods": ["GET"],
-          "pathPattern": "/inventory-import/import-configs/xml-bulk/{id}/deactivate",
+          "pathPattern": "/inventory-import/import-configs/xml-bulk/{id}/pause",
+          "permissionsRequired": [],
+          "modulePermissions": [
+            "inventory-update.batch-by-hrid.collection.put"
+          ]
+        },
+        {
+          "methods": ["GET"],
+          "pathPattern": "/inventory-import/import-configs/xml-bulk/{id}/resume",
           "permissionsRequired": [],
           "modulePermissions": [
             "inventory-update.batch-by-hrid.collection.put"

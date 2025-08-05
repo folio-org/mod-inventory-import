@@ -164,7 +164,7 @@ paths:
         schema:
           type: string
     get:
-      operationId: startImportVerticle
+      operationId: startFileListener
       description: start verticle for given config ID that listens for incoming source records
       responses:
         "200":
@@ -176,7 +176,7 @@ paths:
         "500":
           $ref: "#/components/responses/trait_500"
 
-  /inventory-import/import-configs/xml-bulk/{id}/deactivate:
+  /inventory-import/import-configs/xml-bulk/{id}/pause:
     parameters:
       - $ref: headers/okapi-tenant.yaml
       - $ref: headers/okapi-token.yaml
@@ -188,8 +188,32 @@ paths:
         schema:
           type: string
     get:
-      operationId: stopImportVerticle
-      description: stop verticle for given config ID that listens for incoming source records
+      operationId: pauseImport
+      description: stop file listening for given config ID
+      responses:
+        "200":
+          description: OK
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "404":
+          $ref: "#/components/responses/trait_404"
+        "500":
+          $ref: "#/components/responses/trait_500"
+
+  /inventory-import/import-configs/xml-bulk/{id}/resume:
+    parameters:
+      - $ref: headers/okapi-tenant.yaml
+      - $ref: headers/okapi-token.yaml
+      - $ref: headers/okapi-url.yaml
+      - in: path
+        name: id
+        required: true
+        description: Import configuration identifier (UUID)
+        schema:
+          type: string
+    get:
+      operationId: resumeImport
+      description: resume file listening for given config ID
       responses:
         "200":
           description: OK

@@ -18,6 +18,12 @@ public class ImportJob extends Entity {
 
     private static final String DATE_FORMAT = "YYYY-MM-DD''T''HH24:MI:SS,MS";
 
+    public enum JobStatus {
+        RUNNING,
+        DONE,
+        PAUSED
+    }
+
     public ImportJob() {}
 
     public ImportJob(UUID id,
@@ -30,7 +36,7 @@ public class ImportJob extends Entity {
                      Integer batchSize,
                      UUID transformation,
                      UUID storage,
-                     String status,
+                     JobStatus status,
                      String started,
                      String finished,
                      Integer amountHarvested,
@@ -50,7 +56,7 @@ public class ImportJob extends Entity {
                                    Integer batchSize,
                                    UUID transformation,
                                    UUID storage,
-                                   String status,
+                                   JobStatus status,
                                    String started,
                                    String finished,
                                    Integer amountHarvested,
@@ -101,12 +107,12 @@ public class ImportJob extends Entity {
         return FIELDS;
     }
 
-    public ImportJob fromImportConfig(ImportConfig importConfig) {
+    public ImportJob initiate(ImportConfig importConfig) {
         ImportConfig.ImportConfigRecord cfg = importConfig.record;
         return new ImportJob(UUID.randomUUID(), cfg.id(), cfg.name(), cfg.type(), cfg.URL(),
                 cfg.allowErrors(), cfg.recordLimit(), cfg.batchSize(),
                 cfg.transformationId(), cfg.storageId(),
-                "", SettableClock.getLocalDateTime().toString(), "", 0, "");
+                JobStatus.RUNNING, SettableClock.getLocalDateTime().toString(), "", 0, "");
     }
 
     /**
@@ -130,7 +136,7 @@ public class ImportJob extends Entity {
                 json.getInteger(jsonPropertyName(BATCH_SIZE)),
                 Util.getUUID(json, jsonPropertyName(TRANSFORMATION), null),
                 Util.getUUID(json, jsonPropertyName(STORAGE), null),
-                json.getString(jsonPropertyName(STATUS)),
+                JobStatus.valueOf(json.getString(jsonPropertyName(STATUS))),
                 json.getString(jsonPropertyName(STARTED)),
                 finished != null && started != null && started.compareTo(finished) < 0 ?
                         json.getString(jsonPropertyName(FINISHED)) : null,
@@ -180,7 +186,7 @@ public class ImportJob extends Entity {
                 row.getInteger(dbColumnName(BATCH_SIZE)),
                 row.getUUID(dbColumnName(TRANSFORMATION)),
                 row.getUUID(dbColumnName(STORAGE)),
-                row.getString(dbColumnName(STATUS)),
+                JobStatus.valueOf(row.getString(dbColumnName(STATUS))),
                 row.getLocalDateTime(dbColumnName(STARTED)).toString(),
                 (row.getValue(dbColumnName(FINISHED)) != null ? row.getLocalDateTime(dbColumnName(FINISHED)).toString() : null),
                 (row.getValue(dbColumnName(AMOUNT_HARVESTED)) != null ? row.getInteger(dbColumnName(AMOUNT_HARVESTED)) : null),
@@ -284,20 +290,38 @@ public class ImportJob extends Entity {
                 + ")";
     }
 
-    public void logFinishTime(LocalDateTime finished, ModuleStorageAccess configStorage) {
-        setFinished(finished);
+    public void logFinish(LocalDateTime finished, int recordCount, ModuleStorageAccess configStorage) {
+        setFinished(finished, recordCount);
         configStorage.updateEntity(this,
                 "UPDATE " + configStorage.schema() + "." + table()
-                        + " SET " + dbColumnName(FINISHED) + " = "
-                        + " TO_TIMESTAMP(#{" + dbColumnName(FINISHED) + "}, '" + DATE_FORMAT + "') "
-                        + "WHERE id = #{id}");
+                        + " SET "
+                        + dbColumnName(FINISHED) + " = TO_TIMESTAMP(#{" + dbColumnName(FINISHED) + "}, '" + DATE_FORMAT + "') "
+                        + ", "
+                        + dbColumnName(STATUS) + " = #{" + dbColumnName(STATUS) + "} "
+                        + ", "
+                        + dbColumnName(AMOUNT_HARVESTED) + " = #{" + dbColumnName(AMOUNT_HARVESTED) + "}"
+                        + " WHERE id = #{id}");
     }
 
-    private void setFinished(LocalDateTime finished) {
+    private void setFinished(LocalDateTime finished, int recordCount) {
         record = new ImportJobRecord(record.id, record.importConfigId, record.importConfigName, record.importType,
                 record.url, record.allowErrors, record.recordLimit, record.batchSize, record.transformation, record.storage,
-                record.status, record.started, finished.toString(), record.amountHarvested, record.message);
+                JobStatus.DONE, record.started, finished.toString(), recordCount, record.message);
     }
+
+    public void logStatus(JobStatus status, int recordCount, ModuleStorageAccess configStorage) {
+        record = new ImportJobRecord(record.id, record.importConfigId, record.importConfigName, record.importType,
+                record.url, record.allowErrors, record.recordLimit, record.batchSize, record.transformation, record.storage,
+                status, record.started, record.finished, recordCount, record.message);
+        configStorage.updateEntity(this,
+                "UPDATE " + configStorage.schema() + "." + table()
+                        + " SET "
+                        + dbColumnName(STATUS) + " = #{" + dbColumnName(STATUS) + "} "
+                        + ", "
+                        + dbColumnName(AMOUNT_HARVESTED) + " = #{" + dbColumnName(AMOUNT_HARVESTED) + "}"
+                        + " WHERE id = #{id}");
+    }
+
 
     @Override
     public Future<Void> createDatabase(TenantPgPool pool) {

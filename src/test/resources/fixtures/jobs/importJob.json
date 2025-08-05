@@ -8,7 +8,7 @@
   "recordLimit" : 10000,
   "batchSize" : 100,
   "transformation" : "10928a21-89eb-440d-bc37-b9efae2c98a0",
-  "status" : "",
+  "status" : "DONE",
   "started" : "2025-04-08T18:25:36.807",
   "finished" : "2025-04-08T18:25:46.452",
   "amountHarvested" : 0,
