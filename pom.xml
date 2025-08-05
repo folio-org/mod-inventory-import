@@ -5,11 +5,11 @@
     <artifactId>mod-inventory-import</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <properties>
+        <argLine />
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <okapi.version>5.3.0</okapi.version>
         <vertx.version>4.5.3</vertx.version>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <mockito.version>5.16.0</mockito.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -273,12 +273,13 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.2</version>
+                <version>3.5.2</version>
                 <configuration>
-                    <useSystemClassLoader>false</useSystemClassLoader>
-                    <includes>
-                        <include>**/test/TestSuite.class</include>
-                    </includes>
+                    <argLine>
+                        @{argLine}
+                        -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar
+                        -Xshare:off
+                    </argLine>
                 </configuration>
             </plugin>
             <plugin>
@@ -466,27 +467,6 @@
 
         </plugins>
     </build>
-    <profiles>
-        <profile>
-            <id>importTests</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <version>2.22.2</version>
-                        <configuration>
-                            <useSystemClassLoader>false</useSystemClassLoader>
-                            <includes>
-                                <include>**/test/TestSuite.class</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
-
     <pluginRepositories>
         <pluginRepository>
             <id>folio-nexus</id>
