@@ -497,7 +497,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
                                 .deployIfNotDeployed(vertx, tenant, importConfigId, routingContext)
                                 .onSuccess(promise::complete);
                     } else {
-                        promise.fail("Could not find import config with id [" + importConfigId + "] found.");
+                        promise.fail("Could not find import config with id [" + importConfigId + "].");
                     }
                 }).mapEmpty();
         return promise.future();
