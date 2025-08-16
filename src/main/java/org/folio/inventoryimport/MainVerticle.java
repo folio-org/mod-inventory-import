@@ -12,10 +12,12 @@ import org.folio.tlib.postgres.TenantPgPool;
 
 
 public class MainVerticle extends AbstractVerticle {
+  private static final String module = "mod-inventory-import";
+
   @Override
   public void start(Promise<Void> promise) {
 
-    TenantPgPool.setModule("mod-inventory-import"); // Postgres - schema separation
+    TenantPgPool.setModule(module); // Postgres - schema separation
 
     // listening port
     final int port = Integer.parseInt(Config.getSysConf("http.port", "port", "8081", config()));
@@ -29,7 +31,7 @@ public class MainVerticle extends AbstractVerticle {
 
     HttpServerOptions so = new HttpServerOptions()
         .setHandle100ContinueAutomatically(true);
-    RouterCreator.mountAll(vertx, routerCreators)
+    RouterCreator.mountAll(vertx, routerCreators, module)
         .compose(router ->
             vertx.createHttpServer(so)
                 .requestHandler(router)
