@@ -139,11 +139,11 @@ paths:
         content:
           application/xml:
             schema:
-              $ref: "#/components/schemas/script"
+              $ref: "#/components/schemas/sourceRecords"
         required: true
       responses:
-        "204":
-          description: No content
+        "200":
+          description: Source file uploaded
         "400":
           $ref: "#/components/responses/trait_400"
         "404":
@@ -310,7 +310,7 @@ paths:
           format: uuid
     get:
       operationId: getImportJob
-      description: Retrieves details of a previous harvest job
+      description: Retrieves details of a previous import job
       responses:
         "200":
           description: A past import job
@@ -937,6 +937,8 @@ components:
       $ref: schemas/step.json
     script:
       $ref: schemas/script.json
+    sourceRecords:
+      $ref: schemas/sourceRecords.json
     transformationStepAssociation:
       $ref: schemas/transformationStepAssociation.json
     transformationStepAssociations:

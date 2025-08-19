@@ -1,0 +1,20 @@
+{
+  "description": "A collection of xml source records.",
+  "type": "object",
+  "properties": {
+    "collection": {
+      "description": "A batch of XML records.",
+      "type": "object",
+      "properties": {
+        "record": {
+          "description": "One or more record elements",
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
