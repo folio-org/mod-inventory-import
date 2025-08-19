@@ -9,6 +9,9 @@
         "record": {
           "description": "One or more record elements",
           "type": "array",
+          "items": {
+            "type": "object"
+          },
           "additionalProperties": true
         }
       }
