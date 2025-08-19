@@ -153,17 +153,65 @@ public class UnitTests {
     }
 
     @Test
-    public void canPostAndGetTransformation() {
+    public void canPostGetPutDeleteTransformation() {
         JsonObject transformation = JSON_TRANSFORMATION_CONFIG;
         String id = transformation.getString("id");
 
         postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG);
         getRecordById(PATH_TRANSFORMATIONS, id);
         assertThat(getRecords(PATH_TRANSFORMATIONS).extract().path("totalRecords"), is(1));
+
+        JsonObject update = JSON_TRANSFORMATION_CONFIG.copy();
+        update.put("name", "updated name");
+        putJsonObject(PATH_TRANSFORMATIONS+"/"+JSON_TRANSFORMATION_CONFIG.getString("id"), update, 204);
+        putJsonObject(PATH_TRANSFORMATIONS+"/"+UUID.randomUUID(), update, 404);
+        getRecords(PATH_TRANSFORMATIONS).body("totalRecords", is(1));
+        deleteRecord(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG.getString("id"), 200);
+        getRecords(PATH_TRANSFORMATIONS).body("totalRecords", is(0));
+        deleteRecord(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG.getString("id"), 404);
     }
 
     @Test
-    public void canPostAndGetStepAndGetXslt() {
+    public void canPostGetPutDeleteTransformationStep() {
+        JsonObject transformation = JSON_TRANSFORMATION_CONFIG.copy();
+        String transformationId = "61f55639-17d6-417a-9d44-ffb4226ad020";
+        String stepId = "cdfbc4f0-ee67-4e9a-99c9-981bef6e51db";
+        String tsaId = "17c03639-80ab-43f3-a10a-084a3444a17e";
+        transformation.put("id", transformationId);
+        postJsonObject(PATH_TRANSFORMATIONS, transformation);
+
+        JsonObject step = new JsonObject();
+        step.put("id", stepId)
+                .put("name", "test step")
+                .put("enabled", true)
+                .put("script", Files.XSLT_COPY_XML_DOC);
+
+        postJsonObject(PATH_STEPS, step);
+        JsonObject tsa = new JsonObject();
+        tsa.put("id",tsaId);
+        tsa.put("step", new JsonObject().put("id", stepId));
+        tsa.put("transformation", transformationId);
+        tsa.put("position", "1");
+        String id = tsa.getString("id");
+
+        postJsonObject(PATH_TSAS, tsa);
+        getRecordById(PATH_TSAS, id);
+        assertThat(getRecords(PATH_TSAS).extract().path("totalRecords"), is(1));
+
+        JsonObject update = tsa.copy();
+        putJsonObject(PATH_TSAS+"/"+tsa.getString("id"), update, 204);
+        putJsonObject(PATH_TSAS+"/"+UUID.randomUUID(), update, 404);
+        getRecords(PATH_TSAS).body("totalRecords", is(1));
+        deleteRecord(PATH_TSAS, tsa.getString("id"), 200);
+        getRecords(PATH_TSAS).body("totalRecords", is(0));
+        deleteRecord(PATH_TSAS, tsaId, 404);
+        deleteRecord(PATH_TRANSFORMATIONS, transformationId, 200);
+        deleteRecord(PATH_STEPS, stepId, 200);
+    }
+
+
+    @Test
+    public void canPostGetPutStepGetXsltDelete() {
         JsonObject step = new JsonObject();
         step.put("id", STEP_ID)
                 .put("name", "test step")
@@ -174,6 +222,10 @@ public class UnitTests {
         getRecordById(PATH_STEPS, STEP_ID).extract().response().getBody().prettyPrint();
         assertThat(getRecords(PATH_STEPS).extract().path("totalRecords"), is(1));
         await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(Files.XSLT_COPY_XML_DOC));
+        putJsonObject(PATH_STEPS + "/" + STEP_ID, step, 204);
+        await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(Files.XSLT_COPY_XML_DOC));
+        deleteRecord(PATH_STEPS, STEP_ID, 200);
+        deleteRecord(PATH_STEPS, STEP_ID, 404);
     }
 
     @Test
@@ -277,21 +329,29 @@ public class UnitTests {
     }
 
     @Test
-    public void canPostAndGetImportConfig() {
+    public void canPostGetPutDeleteImportConfig() {
         postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG);
         postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
-        getRecords(PATH_IMPORT_CONFIGS)
-                .body("totalRecords", is(1));
+        getRecords(PATH_IMPORT_CONFIGS).body("totalRecords", is(1));
+        JsonObject update = JSON_IMPORT_CONFIG.copy();
+        update.put("name", "updated name");
+        putJsonObject(PATH_IMPORT_CONFIGS+"/"+JSON_IMPORT_CONFIG.getString("id"), update, 204);
+        putJsonObject(PATH_IMPORT_CONFIGS+"/"+UUID.randomUUID(), update, 404);
+        getRecords(PATH_IMPORT_CONFIGS).body("totalRecords", is(1));
+        deleteRecord(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG.getString("id"), 200);
+        getRecords(PATH_IMPORT_CONFIGS).body("totalRecords", is(0));
+        deleteRecord(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG.getString("id"), 404);
     }
 
     @Test
-    public void canPostAndGetAndDeleteImportJob() {
+    public void canPostGetDeleteImportJob() {
         postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG);
         postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
         postJsonObject(PATH_IMPORT_JOBS, JSON_IMPORT_JOB);
         getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(1));
-        deleteRecord(PATH_IMPORT_JOBS, JSON_IMPORT_JOB.getString("id"));
+        deleteRecord(PATH_IMPORT_JOBS, JSON_IMPORT_JOB.getString("id"), 200);
         getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(0));
+        //deleteRecord(PATH_IMPORT_JOBS, JSON_IMPORT_JOB.getString("id"), 404);
     }
 
     @Test
@@ -347,6 +407,7 @@ public class UnitTests {
         getRecordById(PATH_TRANSFORMATIONS, transformationId);
         postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_200);
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
@@ -365,6 +426,7 @@ public class UnitTests {
                 .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
 
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), greaterThan(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
@@ -384,6 +446,7 @@ public class UnitTests {
 
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), greaterThan(1));
 
         given()
                 .port(Service.PORT_OKAPI)
@@ -591,6 +654,18 @@ public class UnitTests {
                 .statusCode(201);
     }
 
+    ValidatableResponse putJsonObject(String api, JsonObject body, int statusCode) {
+        return given()
+                .baseUri(BASE_URI_INVENTORY_IMPORT)
+                .header(OKAPI_TENANT)
+                .header(OKAPI_URL)
+                .body(body.encodePrettily())
+                .header(CONTENT_TYPE_JSON)
+                .put(api)
+                .then()
+                .statusCode(statusCode);
+    }
+
     ValidatableResponse putXml (String api, String body) {
         return given()
                 .baseUri(BASE_URI_INVENTORY_IMPORT)
@@ -626,14 +701,14 @@ public class UnitTests {
                 .statusCode(200);
     }
 
-    ValidatableResponse deleteRecord(String api, String id) {
+    ValidatableResponse deleteRecord(String api, String id, int statusCode) {
         return given()
                 .baseUri(BASE_URI_INVENTORY_IMPORT)
                 .header(OKAPI_TENANT)
                 .header(OKAPI_URL)
                 .delete(api + "/" + id)
                 .then()
-                .statusCode(200);
+                .statusCode(statusCode);
     }
 
     ValidatableResponse getRecords(String api) {

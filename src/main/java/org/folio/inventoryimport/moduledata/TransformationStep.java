@@ -48,7 +48,7 @@ public class TransformationStep extends Entity {
     }
 
     @Override
-    public Entity fromJson(JsonObject json) {
+    public TransformationStep fromJson(JsonObject json) {
         return new TransformationStep(
                 getUuidOrGenerate(json.getString(jsonPropertyName(ID))),
                 json.containsKey(jsonPropertyName(TRANSFORMATION_ID)) ?

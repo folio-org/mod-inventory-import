@@ -63,17 +63,26 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         handler(vertx, routerBuilder, "postImportConfig", this::postImportConfig);
         handler(vertx, routerBuilder, "getImportConfigs", this::getImportConfigs);
         handler(vertx, routerBuilder, "getImportConfig", this::getImportConfigById);
+        handler(vertx, routerBuilder, "putImportConfig", this::putImportConfig);
+        handler(vertx, routerBuilder, "deleteImportConfig", this::deleteImportConfig);
+        handler(vertx, routerBuilder, "postTransformation", this::postTransformation);
         handler(vertx, routerBuilder, "getTransformation", this::getTransformationById);
         handler(vertx, routerBuilder, "getTransformations", this::getTransformations);
-        handler(vertx, routerBuilder, "postTransformation", this::postTransformation);
+        handler(vertx, routerBuilder, "putTransformation", this::putTransformation);
+        handler(vertx, routerBuilder, "deleteTransformation", this::deleteTransformation);
         handler(vertx, routerBuilder, "postStep", this::postStep);
         handler(vertx, routerBuilder, "getSteps", this::getSteps);
         handler(vertx, routerBuilder, "getStep", this::getStepById);
+        handler(vertx, routerBuilder, "putStep", this::putStep);
+        handler(vertx, routerBuilder, "deleteStep", this::deleteStep);
         handler(vertx, routerBuilder, "getScript", this::getScript);
         handler(vertx, routerBuilder, "putScript", this::putScript);
+        handler(vertx, routerBuilder, "postTsa", this::postTransformationStep);
         handler(vertx, routerBuilder, "getTsas", this::getTransformationSteps);
         handler(vertx, routerBuilder, "getTsa", this::getTransformationStepById);
-        handler(vertx, routerBuilder, "postTsa", this::postTransformationStep);
+        handler(vertx, routerBuilder, "putTsa", this::putTransformationStep);
+        handler(vertx, routerBuilder, "deleteTsa", this::deleteTransformationStep);
+
         // Jobs
         handler(vertx, routerBuilder, "getImportJobs", this::getImportJobs);
         handler(vertx, routerBuilder, "getImportJob", this::getImportJobById);
@@ -176,12 +185,13 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
         UUID id = UUID.fromString(params.pathParameter("id").getString());
         return new ModuleStorageAccess(vertx, tenant).deleteEntity(id, entity).
-                  onSuccess(done-> responseText(routingContext, 200)
-                          .end(done == 0 ?
-                                  entity.entityName() + " with ID " + id + " not found."
-                                  :
-                                  "Deleted." ))
-                .mapEmpty();
+                onSuccess(result -> {
+                    if (result == 0) {
+                        responseText(routingContext, 404).end("Not found");
+                    } else {
+                        responseText(routingContext, 200).end();
+                    }
+                }).mapEmpty();
     }
 
     private Future<Void> postImportConfig(Vertx vertx, RoutingContext routingContext) {
@@ -199,6 +209,26 @@ public class ImportService implements RouterCreator, TenantInitHooks {
 
     private Future<Void> getImportConfigById(Vertx vertx, RoutingContext routingContext) {
         return getEntity(vertx, routingContext, new ImportConfig());
+    }
+
+    private Future<Void> putImportConfig(Vertx vertx, RoutingContext routingContext) {
+        String tenant = TenantUtil.tenant(routingContext);
+        ImportConfig importConfig = new ImportConfig().fromJson(routingContext.body().asJsonObject());
+        RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
+        UUID id = UUID.fromString(params.pathParameter("id").getString());
+        ModuleStorageAccess db = new ModuleStorageAccess(vertx,tenant);
+        return db.updateEntity(id,importConfig)
+                .onSuccess(result-> {
+                    if (result.rowCount()==1) {
+                        responseText(routingContext, 204).end();
+                    } else {
+                        responseText(routingContext, 404).end("Not found");
+                    }
+                }).mapEmpty();
+    }
+
+    private Future<Void> deleteImportConfig(Vertx vertx, RoutingContext routingContext) {
+        return deleteEntity(vertx, routingContext, new ImportConfig());
     }
 
     private Future<Void> postImportJob(Vertx vertx, RoutingContext routingContext) {
@@ -405,12 +435,37 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         }
     }
 
+    private Future<Void> putStep(Vertx vertx, RoutingContext routingContext) {
+        String tenant = TenantUtil.tenant(routingContext);
+        Step step = new Step().fromJson(routingContext.body().asJsonObject());
+        String validationResponse = step.validateScriptAsXml();
+        if (validationResponse.equals("OK")) {
+            RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
+            UUID id = UUID.fromString(params.pathParameter("id").getString());
+            ModuleStorageAccess db = new ModuleStorageAccess(vertx,tenant);
+            return db.updateEntity(id,step)
+                    .onSuccess(result-> {
+                        if (result.rowCount()==1) {
+                            responseText(routingContext, 204).end();
+                        } else {
+                            responseText(routingContext, 404).end("Not found");
+                        }
+                    }).mapEmpty();
+        }  else {
+            return Future.failedFuture(validationResponse);
+        }
+    }
+
     private Future<Void> getSteps(Vertx vertx, RoutingContext routingContext) {
         return getEntities(vertx, routingContext, new Step());
     }
 
     private Future<Void> getStepById(Vertx vertx, RoutingContext routingContext) {
         return getEntity(vertx, routingContext, new Step());
+    }
+
+    private Future<Void> deleteStep(Vertx vertx, RoutingContext routingContext) {
+        return deleteEntity(vertx, routingContext, new Step());
     }
 
     private Future<Void> getScript(Vertx vertx, RoutingContext routingContext) {
@@ -449,6 +504,26 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         return getEntities(vertx, routingContext, new Transformation());
     }
 
+    private Future<Void> putTransformation(Vertx vertx, RoutingContext routingContext) {
+        String tenant = TenantUtil.tenant(routingContext);
+        Transformation transformation = new Transformation().fromJson(routingContext.body().asJsonObject());
+        RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
+        UUID id = UUID.fromString(params.pathParameter("id").getString());
+        ModuleStorageAccess db = new ModuleStorageAccess(vertx,tenant);
+        return db.updateEntity(id, transformation)
+                .onSuccess(result-> {
+                    if (result.rowCount()==1) {
+                        responseText(routingContext, 204).end();
+                    } else {
+                        responseText(routingContext, 404).end("Not found");
+                    }
+                }).mapEmpty();
+    }
+
+    private Future<Void> deleteTransformation(Vertx vertx, RoutingContext routingContext) {
+        return deleteEntity(vertx, routingContext, new Transformation());
+    }
+
     private Future<Void> postTransformationStep(Vertx vertx, RoutingContext routingContext) {
         String tenant = TenantUtil.tenant(routingContext);
         Entity transformationStep = new TransformationStep().fromJson(routingContext.body().asJsonObject());
@@ -464,6 +539,26 @@ public class ImportService implements RouterCreator, TenantInitHooks {
 
     private Future<Void> getTransformationSteps(Vertx vertx, RoutingContext routingContext) {
         return getEntities(vertx, routingContext, new TransformationStep());
+    }
+
+    private Future<Void> putTransformationStep(Vertx vertx, RoutingContext routingContext) {
+        String tenant = TenantUtil.tenant(routingContext);
+        TransformationStep transformationStep = new TransformationStep().fromJson(routingContext.body().asJsonObject());
+        RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
+        UUID id = UUID.fromString(params.pathParameter("id").getString());
+        ModuleStorageAccess db = new ModuleStorageAccess(vertx,tenant);
+        return db.updateEntity(id, transformationStep)
+                .onSuccess(result-> {
+                    if (result.rowCount()==1) {
+                        responseText(routingContext, 204).end();
+                    } else {
+                        responseText(routingContext, 404).end("Not found");
+                    }
+                }).mapEmpty();
+    }
+
+    private Future<Void> deleteTransformationStep(Vertx vertx, RoutingContext routingContext) {
+        return deleteEntity(vertx, routingContext, new TransformationStep());
     }
 
     private Future<Void> stageXmlSourceFile(Vertx vertx, RoutingContext routingContext) {

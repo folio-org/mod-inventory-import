@@ -51,7 +51,7 @@ public class Transformation extends Entity {
         return "Transformation pipeline";
     }
 
-    public Entity fromJson(JsonObject json) {
+    public Transformation fromJson(JsonObject json) {
         return new Transformation(
                 getUuidOrGenerate(json.getString(jsonPropertyName(ID))),
                 json.getString(jsonPropertyName(NAME)),

@@ -75,10 +75,19 @@
           "pathPattern": "/inventory-import/import-configs",
           "permissionsRequired": []
         }, {
+          "methods": ["PUT"],
+          "pathPattern": "/inventory-import/import-configs/{id}",
+          "permissionsRequired": []
+        }, {
           "methods": ["GET"],
           "pathPattern": "/inventory-import/import-configs/{id}",
           "permissionsRequired": []
-        },{
+        }, {
+          "methods": ["DELETE"],
+          "pathPatterns": "/inventory-import/import-configs/{id}",
+          "permissionsRequired": []
+        },
+        {
           "methods": ["POST"],
           "pathPattern": "/inventory-import/steps",
           "permissionsRequired": []
@@ -88,6 +97,14 @@
           "permissionsRequired": []
         },{
           "methods": ["GET"],
+          "pathPattern": "/inventory-import/steps/{id}",
+          "permissionsRequired": []
+        }, {
+          "methods": ["PUT"],
+          "pathPattern": "/inventory-import/steps/{id}",
+          "permissionsRequired": []
+        }, {
+          "methods": ["DELETE"],
           "pathPattern": "/inventory-import/steps/{id}",
           "permissionsRequired": []
         }, {
@@ -111,7 +128,16 @@
           "methods": ["GET"],
           "pathPattern": "/inventory-import/transformations/{id}",
           "permissionsRequired": []
-        },{
+        }, {
+          "methods": ["PUT"],
+          "pathPattern": "/inventory-import/transformation/{id}",
+          "permissionsRequired": []
+        },
+        {
+           "methods": ["DELETE"],
+          "pathPattern": "/inventory-import/transformations/{id}",
+          "permissionsRequired": []
+        }, {
           "methods": ["POST"],
           "pathPattern": "/inventory-import/import-configs/xml-bulk/{id}/import",
           "permissionsRequired": [],
