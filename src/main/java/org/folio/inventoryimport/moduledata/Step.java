@@ -168,7 +168,8 @@ public class Step extends Entity {
                 "UPDATE " + storage.schema() + "." + table()
                         + " SET " + dbColumnName(SCRIPT)
                         + " = #{" + dbColumnName(SCRIPT) + "}".replaceAll(System.lineSeparator(), "\n")
-                        + " WHERE id = #{id}");
+                        + " WHERE id = #{id}")
+                .mapEmpty();
     }
 
     @Override

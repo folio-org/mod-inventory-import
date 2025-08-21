@@ -96,14 +96,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/importConfigGet"
+              $ref: "#/components/schemas/importConfigPostPut"
       responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/importConfigGet"
+        "204":
+          description:  No content
         "400":
           $ref: "#/components/responses/trait_400"
         "404":
@@ -584,12 +580,8 @@ paths:
             schema:
               $ref: "#/components/schemas/step"
       responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/step"
+        "204":
+          description: No content
         "400":
           $ref: "#/components/responses/trait_400"
         "404":
@@ -600,8 +592,8 @@ paths:
       operationId: deleteStep
       description: Delete a transformation step definition
       responses:
-        "204":
-          description: No content
+        "200":
+          description: OK
         "404":
           $ref: "#/components/responses/trait_404"
         "500":

@@ -132,6 +132,16 @@ public abstract class Entity {
                 + " VALUES (" + listOfValues + ")";
     }
 
+    public String makeUpdateByIdTemplate(UUID entityId, String schema) {
+        StringBuilder listOfColumnsValues = new StringBuilder();
+        fields().keySet().forEach(field ->
+                listOfColumnsValues.append(dbColumnName(field)).append(" = #{").append(dbColumnName(field)).append("},"));
+        listOfColumnsValues.deleteCharAt(listOfColumnsValues.length()-1);
+        return "UPDATE " + schema + "." + table()
+                + " SET "
+                + listOfColumnsValues
+                + " WHERE id = '" + entityId.toString() + "'";
+    }
 
     /**
      * Creates vert.x row mapper that maps a database select result row onto data object(s).

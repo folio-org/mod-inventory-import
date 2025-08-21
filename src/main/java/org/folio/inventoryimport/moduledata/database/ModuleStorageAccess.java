@@ -96,13 +96,15 @@ public class ModuleStorageAccess {
                 .map(UUID.fromString(entity.asJson().getString("id")));
     }
 
-    public Future<Void> updateEntity (Entity entity, String updateTemplate) {
+    public Future<SqlResult<Void>> updateEntity (Entity entity, String updateTemplate) {
         return SqlTemplate.forUpdate(pool.getPool(), updateTemplate)
                 .mapFrom(entity.getTupleMapper())
-                .execute(entity)
-                .onSuccess(res -> logger.info("Updated " + entity.entityName().toLowerCase() + "."))
-                .onFailure(res -> logger.error("Couldn't save " + entity.entityName().toLowerCase() + ": " + res.getMessage() + " " + updateTemplate))
-                .mapEmpty();
+                .execute(entity);
+    }
+
+    public Future<SqlResult<Void>> updateEntity (UUID entityId, Entity entity) {
+        String updateTemplate = entity.makeUpdateByIdTemplate(entityId, pool.getSchema());
+        return updateEntity(entity, updateTemplate);
     }
 
     public Future<Void> storeEntities(Entity definition, List<Entity> entities) {
