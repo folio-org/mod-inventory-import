@@ -31,8 +31,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
@@ -92,6 +98,7 @@ public class UnitTests {
                 .put("purge", true), null);
         fakeFolioApis.configurationStorage.wipeMockRecords();
         fakeFolioApis.settingsStorage.wipeMockRecords();
+        fakeFolioApis.upsertStorage.wipeMockRecords();
     }
 
     void tenantOp(String tenant, JsonObject tenantAttributes, String expectedError) {
@@ -150,6 +157,24 @@ public class UnitTests {
                 .put("position", "1");
         postJsonObject(PATH_TSAS, tsa);
         postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
+    }
+
+    @Test
+    public void testSettableClock() {
+        Instant sysNow = Instant.now();
+        Clock fixedClock = Clock.fixed(sysNow, ZoneId.systemDefault());
+        SettableClock.setClock(fixedClock);
+
+        assertThat("SettableClock is same as fixed clock", SettableClock.getClock().equals(fixedClock));
+        assertThat("SettableClock is same Instant as fixed clock", SettableClock.getInstant().equals(fixedClock.instant()));
+        assertThat("SettableClock has same ZonedDateTime as fixed clock", SettableClock.getZonedDateTime().truncatedTo(ChronoUnit.MILLIS).equals(ZonedDateTime.now(fixedClock).truncatedTo(ChronoUnit.MILLIS)));
+        assertThat("SettableClock has same zone ID as fixed clock", SettableClock.getZoneId().equals(ZoneId.systemDefault()));
+        assertThat("SettableClock has same zone offset as fixed clock", fixedClock.getZone().getRules().getOffset(sysNow).equals(SettableClock.getZoneOffset()));
+        assertThat("SettableClock has same LocalDate as fixed clock", SettableClock.getLocalDate().equals(LocalDate.now(fixedClock)));
+        assertThat("SettableClock has same LocalTime as fixed clock", SettableClock.getLocalTime().equals(LocalTime.now(fixedClock).truncatedTo(ChronoUnit.MILLIS)));
+        assertThat("SettableClock has same LocalDateTime as fixed clock", SettableClock.getLocalDateTime().equals(LocalDateTime.now(fixedClock).truncatedTo(ChronoUnit.MILLIS)));
+
+        SettableClock.setDefaultClock();
     }
 
     @Test
@@ -351,7 +376,7 @@ public class UnitTests {
         getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(1));
         deleteRecord(PATH_IMPORT_JOBS, JSON_IMPORT_JOB.getString("id"), 200);
         getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(0));
-        //deleteRecord(PATH_IMPORT_JOBS, JSON_IMPORT_JOB.getString("id"), 404);
+        deleteRecord(PATH_IMPORT_JOBS, JSON_IMPORT_JOB.getString("id"), 404);
     }
 
     @Test
@@ -407,11 +432,31 @@ public class UnitTests {
         getRecordById(PATH_TRANSFORMATIONS, transformationId);
         postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_200);
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
+        String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
+    }
+
+    @Test
+    public void canDeleteInventoryRecordSet() {
+        configureSamplePipeline();
+        String importConfigId = JSON_IMPORT_CONFIG.getString("id");
+        String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
+
+        getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
+        getRecordById(PATH_TRANSFORMATIONS, transformationId);
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_200);
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(1));
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", XML_DELETE_HRID_359314724);
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(8));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(0));
+
     }
 
     @Test
@@ -431,6 +476,7 @@ public class UnitTests {
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
         getRecordById(PATH_IMPORT_JOBS, jobId).body("amountHarvested", is(500));
+        assertThat("Instances in storage",fakeFolioApis.upsertStorage.internalGetInstances().size(), is(500));
     }
 
     @Test
@@ -476,6 +522,7 @@ public class UnitTests {
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("status"), is("RUNNING"));
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
         getRecordById(PATH_IMPORT_JOBS, jobId).body("amountHarvested", greaterThan(499));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(500));
     }
 
     @Test
@@ -550,7 +597,7 @@ public class UnitTests {
         postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG);
         postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = SettableClock.getLocalDateTime();
         final LocalDateTime agedJobStarted = now.minusMonths(3).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
         final LocalDateTime intermediateJobStarted = now.minusMonths(2).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
         final LocalDateTime newerJobStarted = now.minusMonths(2).truncatedTo(ChronoUnit.SECONDS);

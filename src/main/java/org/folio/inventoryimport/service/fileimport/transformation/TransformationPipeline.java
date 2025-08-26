@@ -93,8 +93,8 @@ public class TransformationPipeline implements RecordReceiver {
         }
     }
 
-    private String convertToJson(String xmlRecord) {
-        return InventoryXmlToInventoryJson.convert(xmlRecord).encodePrettily();
+    private JsonObject convertToJson(String xmlRecord) {
+        return InventoryXmlToInventoryJson.convert(xmlRecord);
     }
 
     private void setTemplates(JsonObject transformation) {
@@ -119,8 +119,9 @@ public class TransformationPipeline implements RecordReceiver {
         long transformationStarted = System.currentTimeMillis();
         records++;
         String transformedXmlRecord = transform("<collection>" + record.getRecordAsString() + "</collection>");
-        String jsonRecord = convertToJson(transformedXmlRecord);
-        record.update(jsonRecord);
+        JsonObject jsonRecord = convertToJson(transformedXmlRecord);
+        record.setIsDeletion(jsonRecord.containsKey("delete"));
+        record.update(jsonRecord.encodePrettily());
         transformationTime += (System.currentTimeMillis() - transformationStarted);
         inventoryUpdater.put(record);
     }

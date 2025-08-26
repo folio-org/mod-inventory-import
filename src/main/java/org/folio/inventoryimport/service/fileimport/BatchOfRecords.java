@@ -10,17 +10,29 @@ public class BatchOfRecords {
 
     private final boolean lastBatchOfFile;
     private final ArrayList<ProcessingRecord> batch;
-    private InventoryUpdateClient.UpsertResponse upsertResponse;
+
+    private ProcessingRecord deletingRecord;
+    private InventoryUpdateClient.UpdateResponse updateResponse;
 
     public BatchOfRecords(ArrayList<ProcessingRecord> processingRecords, boolean lastBatchOfFile) {
+        if (!processingRecords.isEmpty() && processingRecords.getLast().isDeletion()) {
+            deletingRecord = processingRecords.removeLast();
+        }
         this.batch = processingRecords;
         this.lastBatchOfFile = lastBatchOfFile;
+    }
+
+    public boolean hasDeletingRecord () {
+        return deletingRecord != null;
+    }
+
+    public ProcessingRecord getDeletingRecord() {
+        return deletingRecord;
     }
 
     public boolean isLastBatchOfFile() {
         return lastBatchOfFile;
     }
-
 
     public int size() {
         return batch.size();
@@ -38,12 +50,12 @@ public class BatchOfRecords {
         return inventoryRecordSets;
     }
 
-    public void setResponse(InventoryUpdateClient.UpsertResponse upsertResponse) {
-        this.upsertResponse = upsertResponse;
+    public void setResponse(InventoryUpdateClient.UpdateResponse updateResponse) {
+        this.updateResponse = updateResponse;
     }
 
     public JsonArray getErrors() {
-        return upsertResponse.getErrors();
+        return updateResponse.getErrors();
     }
 
 

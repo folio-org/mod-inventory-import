@@ -9,7 +9,7 @@ public class ConfigurationStorage extends RecordStorage {
 
     @Override
     protected void declareDependencies() {
-        // Instances have none in fake storage
+        // Configurations have none in fake storage
     }
 
     @Override

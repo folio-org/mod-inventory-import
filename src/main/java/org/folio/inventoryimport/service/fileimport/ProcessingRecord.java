@@ -5,6 +5,7 @@ import io.vertx.core.json.JsonObject;
 public class ProcessingRecord {
     private final String original;
     private String record;
+    private boolean isDeletion = false;
 
     public ProcessingRecord(String original) {
         this.original = original;
@@ -36,6 +37,13 @@ public class ProcessingRecord {
         record = json.encode();
     }
 
+    public boolean isDeletion() {
+        return isDeletion;
+    }
+
+    public void setIsDeletion(boolean isDeletion) {
+        this.isDeletion = isDeletion;
+    }
 
 
 }

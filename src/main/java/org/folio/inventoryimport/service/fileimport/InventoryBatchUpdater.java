@@ -38,7 +38,7 @@ public class InventoryBatchUpdater implements RecordReceiver {
         if (record != null) {
             record.setBatchIndex(records.size());
             records.add(record);
-            if (records.size() > 99) {
+            if (records.size() > 99 || record.isDeletion()) {
                 ArrayList<ProcessingRecord> copyOfRecords = new ArrayList<>(records);
                 records.clear();
                 releaseBatch(new BatchOfRecords(copyOfRecords, false));
@@ -60,6 +60,7 @@ public class InventoryBatchUpdater implements RecordReceiver {
             }).onComplete(na -> turnstile.exitBatch());
         }
     }
+
 
     @Override
     public void endOfDocument() {
@@ -84,12 +85,44 @@ public class InventoryBatchUpdater implements RecordReceiver {
                                 .onFailure(err -> logger.error("Error logging upsert results " + err.getMessage()));
                     }
                     job.reporting.incrementInventoryMetrics(new InventoryMetrics(upsert.getMetrics()));
-                    if (batch.isLastBatchOfFile()) {
-                        reportEndOfFile();
+                    if (batch.hasDeletingRecord()) {
+                        updateClient.inventoryDeletion(batch.getDeletingRecord().getRecordAsJson().getJsonObject("delete"))
+                                .onSuccess(deletion -> {
+                                    job.reporting.incrementRecordsProcessed(1);
+                                    job.reporting.incrementInventoryMetrics(new InventoryMetrics(deletion.getMetrics()));
+                                    if (deletion.statusCode() == 404) {
+                                        batch.setResponse(deletion);
+                                        job.reporting.reportErrors(batch)
+                                                .onFailure(err -> logger.error("Error logging deletion results " + err.getMessage()));
+                                    }
+                                    if (batch.isLastBatchOfFile()) {
+                                        reportEndOfFile();
+                                    }
+                                    promise.complete();
+                                });
+                    } else {
+                        if (batch.isLastBatchOfFile()) {
+                            reportEndOfFile();
+                        }
+                        promise.complete();
                     }
-                    promise.complete();
                 }).onFailure(handler -> promise.fail("Fatal error: " + handler.getMessage()));
-            } else { // we get here when the last set of records is exactly 100. We just need to report
+            } else if (batch.hasDeletingRecord()) {
+                updateClient.inventoryDeletion(batch.getDeletingRecord().getRecordAsJson().getJsonObject("delete"))
+                        .onSuccess(deletion -> {
+                            job.reporting.incrementRecordsProcessed(1);
+                            job.reporting.incrementInventoryMetrics(new InventoryMetrics(deletion.getMetrics()));
+                            if (deletion.statusCode() == 404) {
+                                batch.setResponse(deletion);
+                                job.reporting.reportErrors(batch)
+                                        .onFailure(err -> logger.error("Error logging deletion results " + err.getMessage()));
+                            }
+                            if (batch.isLastBatchOfFile()) {
+                                reportEndOfFile();
+                            }
+                            promise.complete();
+                        });
+            } else { // we get here when the last set of records has exactly 100. We just need to report
                 if (batch.isLastBatchOfFile()) {
                     reportEndOfFile();
                 }

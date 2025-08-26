@@ -31,6 +31,7 @@ public class Files {
 
   public static String XML_INVENTORY_RECORD_SET_200 = getSampleFile("sourcefiles/inventoryRecordSet200.xml");
   public static String XML_INVENTORY_RECORD_SET_207 = getSampleFile("sourcefiles/inventoryRecordSet207.xml");
+  public static String XML_DELETE_HRID_359314724 = getSampleFile("sourcefiles/delete-359314724.xml");
 
   public static JsonObject JSON_TRANSFORMATION_CONFIG = new JsonObject(Objects.requireNonNull(getSampleFile("configs/transformation.json")));
   public static JsonObject JSON_IMPORT_CONFIG = new JsonObject(Objects.requireNonNull(getSampleFile("configs/importConfig.json")));
@@ -50,6 +51,21 @@ public class Files {
   }
 
   /**
+    * Creates [numberOfFiles] files (strings of file content), each with [recordsPerFile] records.
+    * @param numberOfFiles number of files to generate
+    * @param recordsPerFile number of XML records to create in each file
+    * @return List of files (strings of file content)
+  */
+  public static ArrayList<String> filesOfInventoryXmlRecords (int numberOfFiles, int recordsPerFile) {
+      ArrayList<String> sourceFiles = new ArrayList<>();
+      for (int files = 0; files < numberOfFiles; files++) {
+          int startRecord = files*recordsPerFile+1;
+          sourceFiles.add(inventoryXmlRecords(startRecord, startRecord+recordsPerFile));
+      }
+      return sourceFiles;
+  }
+
+   /**
    * Generates an XML document, a `collection` of simple Inventory XML `record`s, each record given a unique instance
    * HRID and title using the numbers in the provided interval
    * @param firstRecord  The number for the first record in the series
@@ -66,7 +82,7 @@ public class Files {
           Element root = document.createElement("collection");
           document.appendChild(root);
           for (int i = firstRecord; i < lastRecord; i++) {
-              root.appendChild(createRecord(document, i));
+              root.appendChild(createUpsertRecord(document, i));
           }
           TransformerFactory transformerFactory = TransformerFactory.newInstance();
           Transformer transformer = transformerFactory.newTransformer();
@@ -79,16 +95,7 @@ public class Files {
       return sw.toString();
   }
 
-  public static ArrayList<String> filesOfInventoryXmlRecords (int numberOfFiles, int recordsPerFile) {
-      ArrayList<String> sourceFiles = new ArrayList<>();
-      for (int files = 0; files < numberOfFiles; files++) {
-          int startRecord = files*recordsPerFile+1;
-          sourceFiles.add(inventoryXmlRecords(startRecord, startRecord+recordsPerFile));
-      }
-      return sourceFiles;
-  }
-
-  private static Element createRecord(Document document, int recNo) {
+  private static Element createUpsertRecord(Document document, int recNo) {
       Element record = document.createElement("record");
       record.appendChild(createInstance(document, recNo));
       return record;
@@ -96,14 +103,14 @@ public class Files {
 
   private static Element createInstance(Document document, int recNo) {
       Element instance = document.createElement("instance");
-      instance.appendChild(createElement(document, "source", "SAMPLES"));
-      instance.appendChild(createElement(document, "hrid", "in-" + recNo));
-      instance.appendChild(createElement(document, "title", "200 " + recNo));
-      instance.appendChild(createElement(document, "instanceTypeId", instanceTypeId));
+      instance.appendChild(createTextElement(document, "source", "SAMPLES"));
+      instance.appendChild(createTextElement(document, "hrid", "in-" + recNo));
+      instance.appendChild(createTextElement(document, "title", "200 " + recNo));
+      instance.appendChild(createTextElement(document, "instanceTypeId", instanceTypeId));
       return instance;
   }
 
-  private static Element createElement(Document document, String name, Object value) {
+  private static Element createTextElement(Document document, String name, Object value) {
       Element element = document.createElement(name);
       element.appendChild(document.createTextNode(value.toString()));
       return element;

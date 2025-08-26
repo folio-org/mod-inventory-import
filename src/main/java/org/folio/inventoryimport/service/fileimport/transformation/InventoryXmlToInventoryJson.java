@@ -76,21 +76,21 @@ public class InventoryXmlToInventoryJson {
         }
     }
 
-    private static JsonObject makeInventoryJson(JsonObject intermediateJson) {
+    private static JsonObject makeInventoryJson(JsonObject genericJson) {
         JsonObject json = new JsonObject();
-        if (intermediateJson.containsKey("children")) {
-            return makeInventoryJsonObjects(json, intermediateJson.getJsonArray("children").getJsonObject(0));
+        if (genericJson.containsKey("children")) {
+            return makeInventoryJsonObjects(json, genericJson.getJsonArray("children").getJsonObject(0));
         }
         return json;
     }
 
-    private static JsonObject makeInventoryJsonObjects(JsonObject toJson, JsonObject intermediateJson) {
-        String propertyName = intermediateJson.getString("name");
-        if (intermediateJson.containsKey("children")) {
-            JsonArray childProperties = intermediateJson.getJsonArray("children");
+    private static JsonObject makeInventoryJsonObjects(JsonObject toJson, JsonObject genericJson) {
+        String propertyName = genericJson.getString("name");
+        if (genericJson.containsKey("children")) {
+            JsonArray childProperties = genericJson.getJsonArray("children");
             if (childProperties.getJsonObject(0).getString("name").equals("arr")) {
                 JsonArray toArray = new JsonArray();
-                toJson.put(intermediateJson.getString("name"), toArray);
+                toJson.put(genericJson.getString("name"), toArray);
                 makeInventoryJsonArray(toArray, childProperties);
             } else {
                 if (propertyName.equals("record")) {
@@ -105,14 +105,14 @@ public class InventoryXmlToInventoryJson {
                     }
                 }
             }
-        } else if (intermediateJson.containsKey("text")) {
-            toJson.put(propertyName, intermediateJson.getString("text"));
+        } else if (genericJson.containsKey("text")) {
+            toJson.put(propertyName, genericJson.getString("text"));
         }
         return toJson;
     }
 
-    private static void makeInventoryJsonArray(JsonArray toJsonArray, JsonArray intermediateJsonArray) {
-        for (Object o : intermediateJsonArray) {
+    private static void makeInventoryJsonArray(JsonArray toJsonArray, JsonArray genericJsonArray) {
+        for (Object o : genericJsonArray) {
             JsonObject element = (JsonObject) o;
             if (element.containsKey("children")) {
                 for (Object child : element.getJsonArray("children")) {
