@@ -26,13 +26,10 @@ public class Files {
 
   public static final String XSLT_EMPTY = getSampleFile("stylesheets/empty.xslt");
   public static final String XSLT_INVALID = getSampleFile("stylesheets/invalid.xslt");
-  private static final String instanceTypeId = "30fffe0e-e985-4144-b2e2-1e8179bdb41f";
   public static String XSLT_COPY_XML_DOC = getSampleFile("stylesheets/copyXmlDoc.xslt");
+  private static final String instanceTypeId = "30fffe0e-e985-4144-b2e2-1e8179bdb41f";
 
-  public static String XML_INVENTORY_RECORD_SET_200 = getSampleFile("sourcefiles/inventoryRecordSet200.xml");
-  public static String XML_INVENTORY_RECORD_SET_207 = getSampleFile("sourcefiles/inventoryRecordSet207.xml");
-  public static String XML_DELETE_HRID_359314724 = getSampleFile("sourcefiles/delete-359314724.xml");
-
+  public static String XML_INVENTORY_RECORD_SET = getSampleFile("samplesourcefiles/inventoryRecordSet.xml");
   public static JsonObject JSON_TRANSFORMATION_CONFIG = new JsonObject(Objects.requireNonNull(getSampleFile("configs/transformation.json")));
   public static JsonObject JSON_IMPORT_CONFIG = new JsonObject(Objects.requireNonNull(getSampleFile("configs/importConfig.json")));
   public static JsonObject JSON_IMPORT_JOB = new JsonObject(Objects.requireNonNull(getSampleFile("jobs/importJob.json")));
@@ -56,11 +53,11 @@ public class Files {
     * @param recordsPerFile number of XML records to create in each file
     * @return List of files (strings of file content)
   */
-  public static ArrayList<String> filesOfInventoryXmlRecords (int numberOfFiles, int recordsPerFile) {
+  public static ArrayList<String> filesOfInventoryXmlRecords(int numberOfFiles, int recordsPerFile, String fakedResponseStatus) {
       ArrayList<String> sourceFiles = new ArrayList<>();
       for (int files = 0; files < numberOfFiles; files++) {
           int startRecord = files*recordsPerFile+1;
-          sourceFiles.add(inventoryXmlRecords(startRecord, startRecord+recordsPerFile));
+          sourceFiles.add(createInventoryXmlRecords(startRecord, startRecord+recordsPerFile, fakedResponseStatus));
       }
       return sourceFiles;
   }
@@ -72,47 +69,95 @@ public class Files {
    * @param lastRecord  The number of the last record in the series
    * @return a number of XML records (total records = lastRecord - firstRecord)
    */
-  public static String inventoryXmlRecords(int firstRecord, int lastRecord)  {
-      StringWriter sw = new StringWriter();
-      try {
-          DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-          DocumentBuilder builder = factory.newDocumentBuilder();
-          Document document = builder.newDocument();
-
-          Element root = document.createElement("collection");
-          document.appendChild(root);
-          for (int i = firstRecord; i < lastRecord; i++) {
-              root.appendChild(createUpsertRecord(document, i));
-          }
-          TransformerFactory transformerFactory = TransformerFactory.newInstance();
-          Transformer transformer = transformerFactory.newTransformer();
-          transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-          DOMSource source = new DOMSource(document);
-          transformer.transform(source, new StreamResult(sw));
-      } catch (ParserConfigurationException | TransformerException e) {
-          throw new RuntimeException(e);
+  public static String createInventoryXmlRecords(int firstRecord, int lastRecord, String fakedResponseStatus)  {
+      CollectionOfXmlRecords collection = new CollectionOfXmlRecords();
+      for (int i=firstRecord; i<lastRecord; i++) {
+          collection.addUpsertRecord(i, fakedResponseStatus);
       }
-      return sw.toString();
+      return collection.asXmlString();
   }
 
-  private static Element createUpsertRecord(Document document, int recNo) {
-      Element record = document.createElement("record");
-      record.appendChild(createInstance(document, recNo));
-      return record;
+  public static String createCollectionOfOneInventoryXmlRecord(int hrid, String fakedResponseStatus) {
+      CollectionOfXmlRecords collection = new CollectionOfXmlRecords();
+      collection.addUpsertRecord(hrid, fakedResponseStatus);
+      return collection.asXmlString();
   }
 
-  private static Element createInstance(Document document, int recNo) {
-      Element instance = document.createElement("instance");
-      instance.appendChild(createTextElement(document, "source", "SAMPLES"));
-      instance.appendChild(createTextElement(document, "hrid", "in-" + recNo));
-      instance.appendChild(createTextElement(document, "title", "200 " + recNo));
-      instance.appendChild(createTextElement(document, "instanceTypeId", instanceTypeId));
-      return instance;
+  public static String createCollectionOfOneDeleteRecord(int hrid) {
+      CollectionOfXmlRecords collection = new CollectionOfXmlRecords();
+      collection.addDeleteRecord(hrid);
+      return collection.asXmlString();
   }
 
-  private static Element createTextElement(Document document, String name, Object value) {
-      Element element = document.createElement(name);
-      element.appendChild(document.createTextNode(value.toString()));
-      return element;
+  public static class CollectionOfXmlRecords {
+
+      Document collection;
+      ArrayList<Element> records = new ArrayList<>();
+      public CollectionOfXmlRecords() {
+          try {
+              DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+              DocumentBuilder builder = factory.newDocumentBuilder();
+              collection = builder.newDocument();
+              Element root = collection.createElement("collection");
+              collection.appendChild(root);
+          } catch (ParserConfigurationException pce) {
+              throw new RuntimeException(pce);
+          }
+      }
+
+      public void addUpsertRecord(int recNo, String fakedResponseStatus) {
+          Element record = collection.createElement("record");
+          record.appendChild(createInstance(recNo, fakedResponseStatus));
+          records.add(record);
+      }
+
+      public void addDeleteRecord(int hrid) {
+          Element record = collection.createElement("record");
+          record.appendChild(createDelete(hrid));
+          records.add(record);
+      }
+
+      public Document asDocument() {
+          for (Element record : records) {
+              collection.getDocumentElement().appendChild(record);
+          }
+          return collection;
+      }
+
+      public String asXmlString() {
+          StringWriter sw = new StringWriter();
+          try {
+              TransformerFactory transformerFactory = TransformerFactory.newInstance();
+              Transformer transformer = transformerFactory.newTransformer();
+              transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+              DOMSource source = new DOMSource(this.asDocument());
+              transformer.transform(source, new StreamResult(sw));
+          } catch (TransformerException e) {
+              throw new RuntimeException(e);
+          }
+          return sw.toString();
+      }
+
+      private Element createInstance(int recNo, String fakedResponseStatus) {
+          Element instance = collection.createElement("instance");
+          instance.appendChild(createTextElement("source", "SAMPLES-"+fakedResponseStatus));
+          instance.appendChild(createTextElement("hrid", recNo));
+          instance.appendChild(createTextElement("title", "Title " + recNo));
+          instance.appendChild(createTextElement("instanceTypeId", instanceTypeId));
+          return instance;
+      }
+
+      private Element createDelete(int hrid) {
+          Element delete = collection.createElement("delete");
+          delete.appendChild(createTextElement("hrid", hrid));
+          return delete;
+      }
+
+      private Element createTextElement(String name, Object value) {
+          Element element = collection.createElement(name);
+          element.appendChild(collection.createTextNode(value.toString()));
+          return element;
+      }
+
   }
 }

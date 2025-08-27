@@ -11,19 +11,19 @@ import static org.folio.inventoryimport.test.fixtures.Files.JSON_SINGLE_RECORD_U
 public class InventoryUpsertStorage extends RecordStorage {
     protected void inventoryBatchUpsertHrid (RoutingContext routingContext) {
         JsonObject upsertBody = routingContext.body().asJsonObject();
-        String title = upsertBody.getJsonArray("inventoryRecordSets").getJsonObject(0).getJsonObject("instance").getString("title");
+        String source = upsertBody.getJsonArray("inventoryRecordSets").getJsonObject(0).getJsonObject("instance").getString("source");
         try {
             upsertInventoryRecords(routingContext);
             Thread.sleep(500); // Fake some response time
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        if (title.startsWith("200")) {
+        if (source.endsWith("200")) {
             respond(routingContext, JSON_SINGLE_RECORD_UPSERT_RESPONSE_200, 200);
-        } else if (title.equals("207")) {
+        } else if (source.endsWith("207")) {
             respond(routingContext, JSON_SINGLE_RECORD_UPSERT_RESPONSE_207, 207);
         } else {
-            respond(routingContext, new JsonObject("{ \"testSetupProblem\": true)"), 500);
+            respond(routingContext, new JsonObject("{ \"testSetupProblem\": true}"), 500);
         }
     }
 
@@ -46,7 +46,7 @@ public class InventoryUpsertStorage extends RecordStorage {
                 .forEach(record -> {
                     JsonObject instance = ((JsonObject) record).getJsonObject("instance");
                     String hrid = instance.getString("hrid");
-                    instance.put("id", hrid); // Fake the 'id' property
+                    instance.put("id", hrid); // dummy 'id'
                     FolioApiRecord incoming = new FolioApiRecord(instance);
                     FolioApiRecord existing = getRecord(instance.getString("hrid"));
                     if (existing == null) {
@@ -56,8 +56,6 @@ public class InventoryUpsertStorage extends RecordStorage {
                     }
                 });
     }
-
-
 
     public Collection<FolioApiRecord> internalGetInstances() {
         return getRecords();
@@ -70,12 +68,10 @@ public class InventoryUpsertStorage extends RecordStorage {
 
     @Override
     protected void declareDependencies() {
-
     }
 
     @Override
     protected void declareMandatoryProperties() {
-
     }
 }
 
