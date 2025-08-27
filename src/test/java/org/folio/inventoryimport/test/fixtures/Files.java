@@ -17,6 +17,7 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.ArrayList;
 
@@ -57,7 +58,7 @@ public class Files {
       ArrayList<String> sourceFiles = new ArrayList<>();
       for (int files = 0; files < numberOfFiles; files++) {
           int startRecord = files*recordsPerFile+1;
-          sourceFiles.add(createInventoryXmlRecords(startRecord, startRecord+recordsPerFile, fakedResponseStatus));
+          sourceFiles.add(createCollectionOfInventoryXmlRecords(startRecord, startRecord+recordsPerFile-1, fakedResponseStatus));
       }
       return sourceFiles;
   }
@@ -67,14 +68,24 @@ public class Files {
    * HRID and title using the numbers in the provided interval
    * @param firstRecord  The number for the first record in the series
    * @param lastRecord  The number of the last record in the series
+   * @param fakedResponseStatus The status that fake inventory update should return on PUT
+   * @param deletesPositions Insert delete records at given positions in batch
    * @return a number of XML records (total records = lastRecord - firstRecord)
    */
-  public static String createInventoryXmlRecords(int firstRecord, int lastRecord, String fakedResponseStatus)  {
+  public static String createCollectionOfInventoryXmlRecords(int firstRecord, int lastRecord, String fakedResponseStatus, int ... deletesPositions)  {
       CollectionOfXmlRecords collection = new CollectionOfXmlRecords();
-      for (int i=firstRecord; i<lastRecord; i++) {
-          collection.addUpsertRecord(i, fakedResponseStatus);
+      for (int i=firstRecord; i<=lastRecord; i++) {
+          if (arrayHasInt(deletesPositions, i)) {
+              collection.addDeleteRecord(i);
+          } else {
+              collection.addUpsertRecord(i, fakedResponseStatus);
+          }
       }
       return collection.asXmlString();
+  }
+
+  public static boolean arrayHasInt (int[] arr, int i) {
+      return Arrays.stream(arr).anyMatch(v -> v == i);
   }
 
   public static String createCollectionOfOneInventoryXmlRecord(int hrid, String fakedResponseStatus) {

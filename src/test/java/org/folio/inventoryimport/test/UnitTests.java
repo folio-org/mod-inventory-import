@@ -463,7 +463,68 @@ public class UnitTests {
     }
 
     @Test
-    public void canImportMultipleSourceXml() {
+    public void canInterleaveUpsertsAndDeletes() {
+        configureSamplePipeline();
+        String importConfigId = JSON_IMPORT_CONFIG.getString("id");
+        String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
+        getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
+        getRecordById(PATH_TRANSFORMATIONS, transformationId);
+
+        Files.filesOfInventoryXmlRecords(1,100, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+        // Delete in first position
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 1));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), greaterThan(1));
+        String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
+        String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(99));
+
+        // Ensure 100 records
+        Files.filesOfInventoryXmlRecords(1,100, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+        // Two consecutive deletes
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 49, 50));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(2));
+        String jobId2 = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[1].id");
+        String started2 = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId2).extract().path("finished"), greaterThan(started2));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(98));
+
+        // Ensure 100 records
+        Files.filesOfInventoryXmlRecords(1,100, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+        // Two non-consecutive deletes
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 25, 75));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(3));
+        String jobId3 = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[2].id");
+        String started3 = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId3).extract().path("finished"), greaterThan(started3));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(98));
+
+        // Ensure 100 records
+        Files.filesOfInventoryXmlRecords(1,100, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+        // Two consecutive deletes at end of first file, followed by a second file of upserts
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 99, 100));
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfInventoryXmlRecords(101,200, "200", 99, 100));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(4));
+        String jobId4 = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[3].id");
+        String started4 = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId4).extract().path("finished"), greaterThan(started4));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(198));
+
+
+    }
+
+    @Test
+    public void canImportMultipleXmlSourceFiles() {
         configureSamplePipeline();
         String importConfigId = JSON_IMPORT_CONFIG.getString("id");
         String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
