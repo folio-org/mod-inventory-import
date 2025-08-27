@@ -38,7 +38,7 @@ public class InventoryBatchUpdater implements RecordReceiver {
         if (record != null) {
             record.setBatchIndex(records.size());
             records.add(record);
-            if (records.size() > 99) {
+            if (records.size() > 99 || record.isDeletion()) {
                 ArrayList<ProcessingRecord> copyOfRecords = new ArrayList<>(records);
                 records.clear();
                 releaseBatch(new BatchOfRecords(copyOfRecords, false));
@@ -60,6 +60,7 @@ public class InventoryBatchUpdater implements RecordReceiver {
             }).onComplete(na -> turnstile.exitBatch());
         }
     }
+
 
     @Override
     public void endOfDocument() {
@@ -84,12 +85,20 @@ public class InventoryBatchUpdater implements RecordReceiver {
                                 .onFailure(err -> logger.error("Error logging upsert results " + err.getMessage()));
                     }
                     job.reporting.incrementInventoryMetrics(new InventoryMetrics(upsert.getMetrics()));
-                    if (batch.isLastBatchOfFile()) {
-                        reportEndOfFile();
+                    if (batch.hasDeletingRecord()) {
+                        // Delete and complete the promise
+                        persistDeletion(batch, promise);
+                    } else {
+                        if (batch.isLastBatchOfFile()) {
+                            reportEndOfFile();
+                        }
+                        promise.complete();
                     }
-                    promise.complete();
                 }).onFailure(handler -> promise.fail("Fatal error: " + handler.getMessage()));
-            } else { // we get here when the last set of records is exactly 100. We just need to report
+            } else if (batch.hasDeletingRecord()) {
+                // Delete and complete the promise
+                persistDeletion(batch, promise);
+            } else { // we get here when the last set of records has exactly 100. We just need to report
                 if (batch.isLastBatchOfFile()) {
                     reportEndOfFile();
                 }
@@ -97,6 +106,26 @@ public class InventoryBatchUpdater implements RecordReceiver {
             }
         }
         return promise.future();
+    }
+
+    /**
+     * Persists the deletion, complete the promise when done
+     * @param batch The batch of records containing a deletion record
+     * @param promise The promise of persistBatch
+     */
+    private void persistDeletion(BatchOfRecords batch, Promise<Void> promise) {
+        updateClient.inventoryDeletion(batch.getDeletingRecord().getRecordAsJson().getJsonObject("delete"))
+                .onComplete(deletion -> {
+                    if (deletion.succeeded()) {
+                        job.reporting.incrementRecordsProcessed(1);
+                        job.reporting.incrementInventoryMetrics(new InventoryMetrics(deletion.result().getMetrics()));
+                    } else if (deletion.cause().getMessage().startsWith("404")) {
+                        job.reporting.log("404 error deleting inventory records, record set not found.");
+                    } else{
+                        job.reporting.log("Error making delete request to inventory: "+ deletion.cause().getMessage());
+                    }
+                    promise.complete();
+                });
     }
 
     private void reportEndOfFile() {

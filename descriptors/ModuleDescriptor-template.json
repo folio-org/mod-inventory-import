@@ -84,7 +84,7 @@
           "permissionsRequired": []
         }, {
           "methods": ["DELETE"],
-          "pathPatterns": "/inventory-import/import-configs/{id}",
+          "pathPattern": "/inventory-import/import-configs/{id}",
           "permissionsRequired": []
         },
         {

@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 
 public class InventoryUpdateClient {
     public static final String INVENTORY_UPSERT_PATH = "/inventory-batch-upsert-hrid";
+    public static final String INVENTORY_DELETION_PATH = "/inventory-upsert-hrid";
     private final OkapiClient okapiClient;
     private static InventoryUpdateClient inventoryUpdateClient;
     public static final Logger logger = LogManager.getLogger("InventoryUpdateClient");
@@ -30,7 +31,7 @@ public class InventoryUpdateClient {
         return inventoryUpdateClient;
     }
 
-    public Future<UpsertResponse> inventoryUpsert (JsonObject recordSets) {
+    public Future<UpdateResponse> inventoryUpsert (JsonObject recordSets) {
         Buffer records = Buffer.buffer(recordSets.encode().getBytes(StandardCharsets.UTF_8));
         okapiClient.disableInfoLog();
         return okapiClient
@@ -40,12 +41,28 @@ public class InventoryUpdateClient {
                     if (okapiClient.getStatusCode() == 207) {
                         logger.error(responseJson.getJsonArray("errors").getJsonObject(0).getString("shortMessage"));
                     }
-                    return Future.succeededFuture(new UpsertResponse(okapiClient.getStatusCode(), responseJson));
+                    return Future.succeededFuture(new UpdateResponse(okapiClient.getStatusCode(), responseJson));
                 })
                 .onFailure(e -> logger.error("Could not upsert batch: " + e.getMessage()));
     }
 
-    public record UpsertResponse (int statusCode, JsonObject json) {
+    public Future<UpdateResponse> inventoryDeletion (JsonObject record) {
+        Buffer buffer = Buffer.buffer(record.encode().getBytes(StandardCharsets.UTF_8));
+
+        return okapiClient
+                .request(HttpMethod.DELETE, INVENTORY_DELETION_PATH, buffer)
+                .map(JsonObject::new)
+                .compose(responseJson -> {
+                    if (okapiClient.getStatusCode() == 404) {
+                        // TODO: handle this
+                        logger.warn("Inventory records set to delete not found");
+                    }
+                    return Future.succeededFuture(new UpdateResponse(okapiClient.getStatusCode(), responseJson));
+                })
+                .onFailure(e -> logger.error("Could not delete inventory record set: " + e.getMessage()));
+    }
+
+    public record UpdateResponse(int statusCode, JsonObject json) {
         public JsonObject getMetrics() {
             if (json != null) {
                 return json().getJsonObject("metrics");

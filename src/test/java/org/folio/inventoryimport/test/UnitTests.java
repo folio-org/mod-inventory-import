@@ -31,8 +31,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
@@ -92,6 +98,7 @@ public class UnitTests {
                 .put("purge", true), null);
         fakeFolioApis.configurationStorage.wipeMockRecords();
         fakeFolioApis.settingsStorage.wipeMockRecords();
+        fakeFolioApis.upsertStorage.wipeMockRecords();
     }
 
     void tenantOp(String tenant, JsonObject tenantAttributes, String expectedError) {
@@ -153,6 +160,24 @@ public class UnitTests {
     }
 
     @Test
+    public void testSettableClock() {
+        Instant sysNow = Instant.now();
+        Clock fixedClock = Clock.fixed(sysNow, ZoneId.systemDefault());
+        SettableClock.setClock(fixedClock);
+
+        assertThat("SettableClock is same as fixed clock", SettableClock.getClock().equals(fixedClock));
+        assertThat("SettableClock is same Instant as fixed clock", SettableClock.getInstant().equals(fixedClock.instant()));
+        assertThat("SettableClock has same ZonedDateTime as fixed clock", SettableClock.getZonedDateTime().truncatedTo(ChronoUnit.MILLIS).equals(ZonedDateTime.now(fixedClock).truncatedTo(ChronoUnit.MILLIS)));
+        assertThat("SettableClock has same zone ID as fixed clock", SettableClock.getZoneId().equals(ZoneId.systemDefault()));
+        assertThat("SettableClock has same zone offset as fixed clock", fixedClock.getZone().getRules().getOffset(sysNow).equals(SettableClock.getZoneOffset()));
+        assertThat("SettableClock has same LocalDate as fixed clock", SettableClock.getLocalDate().equals(LocalDate.now(fixedClock)));
+        assertThat("SettableClock has same LocalTime as fixed clock", SettableClock.getLocalTime().equals(LocalTime.now(fixedClock).truncatedTo(ChronoUnit.MILLIS)));
+        assertThat("SettableClock has same LocalDateTime as fixed clock", SettableClock.getLocalDateTime().equals(LocalDateTime.now(fixedClock).truncatedTo(ChronoUnit.MILLIS)));
+
+        SettableClock.setDefaultClock();
+    }
+
+    @Test
     public void canPostGetPutDeleteTransformation() {
         JsonObject transformation = JSON_TRANSFORMATION_CONFIG;
         String id = transformation.getString("id");
@@ -208,7 +233,6 @@ public class UnitTests {
         deleteRecord(PATH_TRANSFORMATIONS, transformationId, 200);
         deleteRecord(PATH_STEPS, stepId, 200);
     }
-
 
     @Test
     public void canPostGetPutStepGetXsltDelete() {
@@ -305,7 +329,6 @@ public class UnitTests {
                 .statusCode(404);
     }
 
-
     @Test
     public void canInsertStepIntoPipeline () {
         JsonObject step = new JsonObject();
@@ -351,7 +374,7 @@ public class UnitTests {
         getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(1));
         deleteRecord(PATH_IMPORT_JOBS, JSON_IMPORT_JOB.getString("id"), 200);
         getRecords(PATH_IMPORT_JOBS).body("totalRecords", is(0));
-        //deleteRecord(PATH_IMPORT_JOBS, JSON_IMPORT_JOB.getString("id"), 404);
+        deleteRecord(PATH_IMPORT_JOBS, JSON_IMPORT_JOB.getString("id"), 404);
     }
 
     @Test
@@ -392,7 +415,7 @@ public class UnitTests {
 
     @Test
     public void willConvertInventoryXmlToInventoryJson() {
-        JsonObject json = InventoryXmlToInventoryJson.convert(XML_INVENTORY_RECORD_SET_200);
+        JsonObject json = InventoryXmlToInventoryJson.convert(XML_INVENTORY_RECORD_SET);
         assertThat(json.getJsonObject("instance"), notNullValue());
         assertThat(json.getJsonArray("holdingsRecords").size(), is(1));
     }
@@ -405,8 +428,8 @@ public class UnitTests {
 
         getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
         getRecordById(PATH_TRANSFORMATIONS, transformationId);
-        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_200);
-        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        Files.filesOfInventoryXmlRecords(1,1, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
@@ -415,22 +438,129 @@ public class UnitTests {
     }
 
     @Test
-    public void canImportMultipleSourceXml() {
+    public void canDeleteInventoryRecordSet() {
+        int HRID = 123;
         configureSamplePipeline();
         String importConfigId = JSON_IMPORT_CONFIG.getString("id");
         String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
         getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
         getRecordById(PATH_TRANSFORMATIONS, transformationId);
 
-        Files.filesOfInventoryXmlRecords(5,100)
-                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+        // Upsert
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfOneInventoryXmlRecord(HRID, "200"));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
+        String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(1));
+        // Delete
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfOneDeleteRecord(HRID));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(8));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(0));
+    }
 
+    @Test
+    public void canInterleaveUpsertsAndDeletes() {
+        configureSamplePipeline();
+        String importConfigId = JSON_IMPORT_CONFIG.getString("id");
+        String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
+        getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
+        getRecordById(PATH_TRANSFORMATIONS, transformationId);
+
+        Files.filesOfInventoryXmlRecords(1,100, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+        // Delete in first position
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 1));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), greaterThan(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(99));
+
+        // Ensure 100 records
+        Files.filesOfInventoryXmlRecords(1,100, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+        // Two consecutive deletes
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 49, 50));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(2));
+        String jobId2 = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[1].id");
+        String started2 = getRecordById(PATH_IMPORT_JOBS, jobId2).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId2).extract().path("finished"), greaterThan(started2));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(98));
+
+        // Ensure 100 records
+        Files.filesOfInventoryXmlRecords(1,100, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+        // Two non-consecutive deletes
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 25, 75));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(3));
+        String jobId3 = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[2].id");
+        String started3 = getRecordById(PATH_IMPORT_JOBS, jobId3).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId3).extract().path("finished"), greaterThan(started3));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(98));
+
+        // Ensure 100 records
+        Files.filesOfInventoryXmlRecords(1,100, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+        // Two consecutive deletes at end of first file, followed by a second file of upserts
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 99, 100));
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfInventoryXmlRecords(101,200, "200", 99, 100));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(4));
+        String jobId4 = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[3].id");
+        String started4 = getRecordById(PATH_IMPORT_JOBS, jobId4).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId4).extract().path("finished"), greaterThan(started4));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(198));
+    }
+
+    @Test
+    public void handlesDeleteOfNonExistingInstance() {
+        configureSamplePipeline();
+        String importConfigId = JSON_IMPORT_CONFIG.getString("id");
+        String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
+        getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
+        getRecordById(PATH_TRANSFORMATIONS, transformationId);
+
+        // Ensure 100 records
+        Files.filesOfInventoryXmlRecords(1,100, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+
+        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
+                Files.createCollectionOfOneDeleteRecord(9999));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
+        String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
+        getRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log").extract().response().prettyPrint();
+    }
+
+    @Test
+    public void canImportMultipleXmlSourceFiles() {
+        configureSamplePipeline();
+        String importConfigId = JSON_IMPORT_CONFIG.getString("id");
+        String transformationId = JSON_TRANSFORMATION_CONFIG.getString("id");
+        getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
+        getRecordById(PATH_TRANSFORMATIONS, transformationId);
+
+        Files.filesOfInventoryXmlRecords(5,100, "200")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
+
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), greaterThan(1));
+        getRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log").extract().response().prettyPrint();
+        String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
+        String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
+        await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
         getRecordById(PATH_IMPORT_JOBS, jobId).body("amountHarvested", is(500));
+        assertThat("Instances in storage",fakeFolioApis.upsertStorage.internalGetInstances().size(), is(500));
     }
 
     @Test
@@ -441,7 +571,7 @@ public class UnitTests {
         getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
         getRecordById(PATH_TRANSFORMATIONS, transformationId);
 
-        Files.filesOfInventoryXmlRecords(5,100)
+        Files.filesOfInventoryXmlRecords(5,100,"200")
                 .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
 
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
@@ -476,6 +606,7 @@ public class UnitTests {
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("status"), is("RUNNING"));
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
         getRecordById(PATH_IMPORT_JOBS, jobId).body("amountHarvested", greaterThan(499));
+        assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(500));
     }
 
     @Test
@@ -514,7 +645,8 @@ public class UnitTests {
 
         getRecordById(PATH_IMPORT_CONFIGS, importConfigId);
         getRecordById(PATH_TRANSFORMATIONS, transformationId);
-        postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", XML_INVENTORY_RECORD_SET_207);
+        Files.filesOfInventoryXmlRecords(1,1, "207")
+                .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
@@ -522,8 +654,6 @@ public class UnitTests {
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
         await().until(() -> getTotalRecords(PATH_IMPORT_JOBS + "/" + jobId + "/failed-records"), is(1));
     }
-
-
 
     @Test
     public void willPurgeAgedJobLogsUsingDefaultThreshold() {
@@ -550,7 +680,7 @@ public class UnitTests {
         postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG);
         postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = SettableClock.getLocalDateTime();
         final LocalDateTime agedJobStarted = now.minusMonths(3).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
         final LocalDateTime intermediateJobStarted = now.minusMonths(2).minusDays(1).truncatedTo(ChronoUnit.SECONDS);
         final LocalDateTime newerJobStarted = now.minusMonths(2).truncatedTo(ChronoUnit.SECONDS);

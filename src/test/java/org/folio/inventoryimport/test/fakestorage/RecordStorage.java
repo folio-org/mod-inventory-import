@@ -7,7 +7,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
 import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -155,7 +154,7 @@ public abstract class RecordStorage {
         return records.values();
     }
 
-    private FolioApiRecord getRecord (String id) {
+    protected FolioApiRecord getRecord (String id) {
         if (failOnGetRecordById) {
             return null;
         } else {

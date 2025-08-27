@@ -89,7 +89,7 @@ public class Reporting {
                 log("File #" + filesProcessed.get() + " (" + stats.getFileName() + ") "
                         + stats.getRecordsProcessed() + " records in " + processingTimeAsString(stats.processingTime()) + " (" + (stats.getRecordsProcessed() * 1000L / stats.processingTime()) +
                         " recs/s.)")
-                        .compose(na -> log(stats.getInventoryMetrics().report()));
+                        .compose(na -> log("File: " + stats.getInventoryMetrics().report()));
                 fileStats.take();
             } else {
                 logger.info("reportFileStats(): FileStatus queue was empty");
@@ -104,7 +104,7 @@ public class Reporting {
         log((queueDone ? "Done processing queue. " : "") + filesProcessed + " file(s) with " + recordsProcessed.get() +
                 " records processed in " + processingTimeAsString(processingTime) + " (" +
                 (recordsProcessed.get() * 1000L / processingTime) + " recs/s.)")
-                .compose(na -> queueDone ? log(inventoryMetrics.report()) : null);
+                .compose(na -> queueDone ? log("File queue: " + inventoryMetrics.report()) : null);
         if (queueDone) {
             fileProcessor.logFinish(recordsProcessed.get());
 

@@ -19,7 +19,7 @@ public class FakeFolioApis {
 
     public final ConfigurationStorage configurationStorage = new ConfigurationStorage();
     public final SettingsStorage settingsStorage = new SettingsStorage();
-    public final InventoryUpsert upsertStorage = new InventoryUpsert();
+    public final InventoryUpsertStorage upsertStorage = new InventoryUpsertStorage();
 
     public FakeFolioApis(Vertx vertx, TestContext testContext) {
         configurationStorage.attachToFakeStorage(this);
@@ -38,6 +38,9 @@ public class FakeFolioApis {
         router.put(SettingsClient.SETTINGS_PATH + "/:id").handler(settingsStorage::updateRecord);
         router.delete(SettingsClient.SETTINGS_PATH + "/:id").handler(settingsStorage::deleteRecord);
         router.put(InventoryUpdateClient.INVENTORY_UPSERT_PATH).handler(upsertStorage::inventoryBatchUpsertHrid);
+        router.delete("/*").handler(BodyHandler.create());
+        router.delete(InventoryUpdateClient.INVENTORY_DELETION_PATH).handler(upsertStorage::deleteRecord);
+        router.put("/instance-storage/instances").handler(upsertStorage::getRecords);
         HttpServerOptions so = new HttpServerOptions().setHandle100ContinueAutomatically(true);
         vertx.createHttpServer(so)
                 .requestHandler(router)
