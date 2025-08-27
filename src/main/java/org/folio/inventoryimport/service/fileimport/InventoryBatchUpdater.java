@@ -86,20 +86,8 @@ public class InventoryBatchUpdater implements RecordReceiver {
                     }
                     job.reporting.incrementInventoryMetrics(new InventoryMetrics(upsert.getMetrics()));
                     if (batch.hasDeletingRecord()) {
-                        updateClient.inventoryDeletion(batch.getDeletingRecord().getRecordAsJson().getJsonObject("delete"))
-                                .onSuccess(deletion -> {
-                                    job.reporting.incrementRecordsProcessed(1);
-                                    job.reporting.incrementInventoryMetrics(new InventoryMetrics(deletion.getMetrics()));
-                                    if (deletion.statusCode() == 404) {
-                                        batch.setResponse(deletion);
-                                        job.reporting.reportErrors(batch)
-                                                .onFailure(err -> logger.error("Error logging deletion results " + err.getMessage()));
-                                    }
-                                    if (batch.isLastBatchOfFile()) {
-                                        reportEndOfFile();
-                                    }
-                                    promise.complete();
-                                });
+                        // Delete and complete the promise
+                        persistDeletion(batch, promise);
                     } else {
                         if (batch.isLastBatchOfFile()) {
                             reportEndOfFile();
@@ -108,20 +96,8 @@ public class InventoryBatchUpdater implements RecordReceiver {
                     }
                 }).onFailure(handler -> promise.fail("Fatal error: " + handler.getMessage()));
             } else if (batch.hasDeletingRecord()) {
-                updateClient.inventoryDeletion(batch.getDeletingRecord().getRecordAsJson().getJsonObject("delete"))
-                        .onSuccess(deletion -> {
-                            job.reporting.incrementRecordsProcessed(1);
-                            job.reporting.incrementInventoryMetrics(new InventoryMetrics(deletion.getMetrics()));
-                            if (deletion.statusCode() == 404) {
-                                batch.setResponse(deletion);
-                                job.reporting.reportErrors(batch)
-                                        .onFailure(err -> logger.error("Error logging deletion results " + err.getMessage()));
-                            }
-                            if (batch.isLastBatchOfFile()) {
-                                reportEndOfFile();
-                            }
-                            promise.complete();
-                        });
+                // Delete and complete the promise
+                persistDeletion(batch, promise);
             } else { // we get here when the last set of records has exactly 100. We just need to report
                 if (batch.isLastBatchOfFile()) {
                     reportEndOfFile();
@@ -130,6 +106,26 @@ public class InventoryBatchUpdater implements RecordReceiver {
             }
         }
         return promise.future();
+    }
+
+    /**
+     * Persists the deletion, complete the promise when done
+     * @param batch The batch of records containing a deletion record
+     * @param promise The promise of persistBatch
+     */
+    private void persistDeletion(BatchOfRecords batch, Promise<Void> promise) {
+        updateClient.inventoryDeletion(batch.getDeletingRecord().getRecordAsJson().getJsonObject("delete"))
+                .onComplete(deletion -> {
+                    if (deletion.succeeded()) {
+                        job.reporting.incrementRecordsProcessed(1);
+                        job.reporting.incrementInventoryMetrics(new InventoryMetrics(deletion.result().getMetrics()));
+                    } else if (deletion.cause().getMessage().startsWith("404")) {
+                        job.reporting.log("404 error deleting inventory records, record set not found.");
+                    } else{
+                        job.reporting.log("Error making delete request to inventory: "+ deletion.cause().getMessage());
+                    }
+                    promise.complete();
+                });
     }
 
     private void reportEndOfFile() {

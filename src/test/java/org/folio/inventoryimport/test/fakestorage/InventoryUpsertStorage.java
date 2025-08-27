@@ -35,6 +35,8 @@ public class InventoryUpsertStorage extends RecordStorage {
 
         if (code == 200) {
             respond(routingContext, JSON_SINGLE_RECORD_UPSERT_RESPONSE_200, 200);
+        } else if (code == 404) {
+            respondWithMessage(routingContext, "Not found", 404);
         } else {
             respondWithMessage(routingContext, (failOnDelete ? "Forced " : "") + "Error deleting from " + STORAGE_NAME, code);
         }
