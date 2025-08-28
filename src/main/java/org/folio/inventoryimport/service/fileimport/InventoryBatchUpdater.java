@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class InventoryBatchUpdater implements RecordReceiver {
 
-    private FileProcessor job;
+    private FileProcessor fileProcessor;
     private final ArrayList<ProcessingRecord> records = new ArrayList<>();
     private final InventoryUpdateClient updateClient;
     private final Turnstile turnstile = new Turnstile();
@@ -29,7 +29,7 @@ public class InventoryBatchUpdater implements RecordReceiver {
      * Sets a reference back to the controller.
       */
     public InventoryBatchUpdater forFileProcessor(FileProcessor processor) {
-        job = processor;
+        fileProcessor = processor;
         return this;
     }
 
@@ -51,12 +51,12 @@ public class InventoryBatchUpdater implements RecordReceiver {
     }
 
     private void releaseBatch(BatchOfRecords batch) {
-        if (!job.paused()) {
+        if (!fileProcessor.paused()) {
             turnstile.enterBatch(batch);
             persistBatch().onFailure(na -> {
                 logger.error("Fatal error during upsert. Halting job. " + na.getMessage());
-                job.reporting.log("Fatal error during upsert. Halting job. " + na.getMessage());
-                job.pause();
+                fileProcessor.reporting.log("Fatal error during upsert. Halting job. " + na.getMessage());
+                fileProcessor.pause();
             }).onComplete(na -> turnstile.exitBatch());
         }
     }
@@ -78,13 +78,13 @@ public class InventoryBatchUpdater implements RecordReceiver {
         if (batch != null) {
             if (batch.size() > 0) {
                 updateClient.inventoryUpsert(batch.getUpsertRequestBody()).onSuccess(upsert -> {
-                    job.reporting.incrementRecordsProcessed(batch.size());
+                    fileProcessor.reporting.incrementRecordsProcessed(batch.size());
                     if (upsert.statusCode() == 207) {
                         batch.setResponse(upsert);
-                        job.reporting.reportErrors(batch)
+                        fileProcessor.reporting.reportErrors(batch)
                                 .onFailure(err -> logger.error("Error logging upsert results " + err.getMessage()));
                     }
-                    job.reporting.incrementInventoryMetrics(new InventoryMetrics(upsert.getMetrics()));
+                    fileProcessor.reporting.incrementInventoryMetrics(new InventoryMetrics(upsert.getMetrics()));
                     if (batch.hasDeletingRecord()) {
                         // Delete and complete the promise
                         persistDeletion(batch, promise);
@@ -117,22 +117,22 @@ public class InventoryBatchUpdater implements RecordReceiver {
         updateClient.inventoryDeletion(batch.getDeletingRecord().getRecordAsJson().getJsonObject("delete"))
                 .onComplete(deletion -> {
                     if (deletion.succeeded()) {
-                        job.reporting.incrementRecordsProcessed(1);
-                        job.reporting.incrementInventoryMetrics(new InventoryMetrics(deletion.result().getMetrics()));
+                        fileProcessor.reporting.incrementRecordsProcessed(1);
+                        fileProcessor.reporting.incrementInventoryMetrics(new InventoryMetrics(deletion.result().getMetrics()));
                     } else if (deletion.cause().getMessage().startsWith("404")) {
-                        job.reporting.log("404 error deleting inventory records, record set not found.");
+                        fileProcessor.reporting.log("404 error deleting inventory records, record set not found.");
                     } else{
-                        job.reporting.log("Error making delete request to inventory: "+ deletion.cause().getMessage());
+                        fileProcessor.reporting.log("Error making delete request to inventory: "+ deletion.cause().getMessage());
                     }
                     promise.complete();
                 });
     }
 
     private void reportEndOfFile() {
-        job.reporting.endOfFile();
-        boolean queueDone = job.fileQueueDone(true);
+        fileProcessor.reporting.endOfFile();
+        boolean queueDone = fileProcessor.fileQueueDone(true);
         if (queueDone) {
-            job.reporting.endOfQueue();
+            fileProcessor.reporting.endOfQueue();
         }
     }
 

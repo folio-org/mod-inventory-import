@@ -179,7 +179,6 @@ public class ImportService implements RouterCreator, TenantInitHooks {
                 .mapEmpty();
     }
 
-
     private Future<Void> deleteEntity(Vertx vertx, RoutingContext routingContext, Entity entity) {
         String tenant = TenantUtil.tenant(routingContext);
         RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
@@ -194,13 +193,20 @@ public class ImportService implements RouterCreator, TenantInitHooks {
                 }).mapEmpty();
     }
 
-    private Future<Void> postImportConfig(Vertx vertx, RoutingContext routingContext) {
+    private Future<Void> storeEntityRespondWith201(Vertx vertx, RoutingContext routingContext, Entity entity) {
         String tenant = TenantUtil.tenant(routingContext);
-        ImportConfig importConfig = new ImportConfig().fromJson(routingContext.body().asJsonObject());
-        return new ModuleStorageAccess(vertx, tenant).storeEntity(importConfig)
-                .onSuccess(configId ->
-                        responseJson(routingContext, 201).end(importConfig.asJson().encodePrettily()))
+        ModuleStorageAccess db = new ModuleStorageAccess(vertx,tenant);
+        return db.storeEntity(entity)
+                .onSuccess(
+                        id -> db.getEntity(id, entity)
+                                .map(stored -> responseJson(routingContext, 201)
+                                        .end(stored.asJson().encodePrettily())))
                 .mapEmpty();
+    }
+
+    private Future<Void> postImportConfig(Vertx vertx, RoutingContext routingContext) {
+        ImportConfig importConfig = new ImportConfig().fromJson(routingContext.body().asJsonObject());
+        return storeEntityRespondWith201(vertx, routingContext, importConfig);
     }
 
     private Future<Void> getImportConfigs(Vertx vertx, RoutingContext routingContext) {
@@ -232,12 +238,8 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> postImportJob(Vertx vertx, RoutingContext routingContext) {
-        String tenant = TenantUtil.tenant(routingContext);
         ImportJob importJob = new ImportJob().fromJson(routingContext.body().asJsonObject());
-        return new ModuleStorageAccess(vertx, tenant).storeEntity(importJob)
-                .onSuccess(configId ->
-                        responseJson(routingContext, 201).end(importJob.asJson().encodePrettily()))
-                .mapEmpty();
+        return storeEntityRespondWith201(vertx, routingContext, importJob);
     }
 
     private Future<Void> getImportJobs(Vertx vertx, RoutingContext routingContext) {
@@ -422,14 +424,10 @@ public class ImportService implements RouterCreator, TenantInitHooks {
 
 
     private Future<Void> postStep(Vertx vertx, RoutingContext routingContext) {
-        String tenant = TenantUtil.tenant(routingContext);
         Step step = new Step().fromJson(routingContext.body().asJsonObject());
         String validationResponse = step.validateScriptAsXml();
         if (validationResponse.equals("OK")) {
-            return new ModuleStorageAccess(vertx, tenant).storeEntity(step)
-                    .onSuccess(stepId ->
-                            responseJson(routingContext, 201).end(step.asJson().encodePrettily()))
-                    .mapEmpty();
+            return storeEntityRespondWith201(vertx, routingContext, step);
         }  else {
             return Future.failedFuture(validationResponse);
         }
@@ -488,12 +486,8 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> postTransformation(Vertx vertx, RoutingContext routingContext) {
-        String tenant = TenantUtil.tenant(routingContext);
         Entity transformation = new Transformation().fromJson(routingContext.body().asJsonObject());
-        return new ModuleStorageAccess(vertx, tenant).storeEntity(transformation)
-                .onSuccess(id ->
-                        responseJson(routingContext, 201).end(transformation.asJson().encodePrettily()))
-                .mapEmpty();
+        return storeEntityRespondWith201(vertx, routingContext, transformation);
     }
 
     private Future<Void> getTransformationById(Vertx vertx, RoutingContext routingContext) {
@@ -525,12 +519,8 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> postTransformationStep(Vertx vertx, RoutingContext routingContext) {
-        String tenant = TenantUtil.tenant(routingContext);
         Entity transformationStep = new TransformationStep().fromJson(routingContext.body().asJsonObject());
-        return new ModuleStorageAccess(vertx, tenant).storeEntity(transformationStep)
-                .onSuccess(id ->
-                        responseJson(routingContext, 201).end(transformationStep.asJson().encodePrettily()))
-                .mapEmpty();
+        return storeEntityRespondWith201(vertx, routingContext, transformationStep);
     }
 
     private Future<Void> getTransformationStepById(Vertx vertx, RoutingContext routingContext) {
