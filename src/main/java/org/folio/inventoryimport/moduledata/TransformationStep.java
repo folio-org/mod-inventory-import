@@ -3,10 +3,12 @@ package org.folio.inventoryimport.moduledata;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.templates.RowMapper;
+import io.vertx.sqlclient.templates.SqlTemplate;
 import io.vertx.sqlclient.templates.TupleMapper;
 import org.folio.inventoryimport.moduledata.database.Tables;
 import org.folio.tlib.postgres.TenantPgPool;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -18,6 +20,10 @@ public class TransformationStep extends Entity {
     public TransformationStep(UUID id, UUID transformationId, UUID stepId, Integer position) {
         record = new TransformationStepRecord(id, transformationId, stepId, position);
     }
+
+    private Integer positionOfLastStepOfTransformation = null;
+    private Integer positionOfTheExistingStep = null;
+    private Integer newPosition = null;
 
     // Transformation/Step association record, the entity data.
     public record TransformationStepRecord(UUID id, UUID transformationId, UUID stepId, Integer position) {}
@@ -98,11 +104,56 @@ public class TransformationStep extends Entity {
         return Tables.transformation_step;
     }
 
+    public Future<Void> updateTsaReorderSteps(TenantPgPool tenantPool, int positionOfExistingTsa) {
+        return findPositionOfLastStepOfTransformation(tenantPool).
+                compose(maxPosition -> {
+                    this.positionOfLastStepOfTransformation = maxPosition;
+                    this.positionOfTheExistingStep = positionOfExistingTsa;
+                    if (this.record.position != positionOfExistingTsa) { // new position requested
+                        // Cannot get new position beyond the last step, assuming this step should just become the last
+                        this.newPosition = Math.min(positionOfLastStepOfTransformation, this.record.position);
+                    } else {
+                        this.newPosition = positionOfExistingTsa;
+                    }
+                    return Future.succeededFuture(this);
+                }).compose(rec -> executeUpdateAndAdjustPositions(tenantPool, rec));
+    }
 
+    public Future<Integer> findPositionOfLastStepOfTransformation(TenantPgPool tenantPool) {
+        return SqlTemplate.forQuery(tenantPool.getPool(),
+                        "SELECT MAX(position) AS last_position "
+                                + "FROM " + table(tenantPool.getSchema()) + " "
+                                + "WHERE transformation_id = #{transformationId}")
+                .execute(Collections.singletonMap("transformationId", record.transformationId))
+                .map(rows -> rows.iterator().next().getInteger("last_position"));
+    }
+
+
+    public Future<Void> executeUpdateAndAdjustPositions(TenantPgPool tenantPool, TransformationStep updatingTsa) {
+        return executeSqlStatements(tenantPool,
+                // Update the one property that can change besides position.
+                "UPDATE " + table(tenantPool.getSchema())
+                        + " SET step_id = '" + record.stepId + "'"
+                        + " WHERE id = '" + record.id + "'",
+                // Update position while potentially adjusting the positions of other steps
+                "UPDATE " + table(tenantPool.getSchema())
+                        + " SET position = "
+                        + "     CASE "
+                        // set the new position of the step
+                        + "       WHEN id = '" + updatingTsa.record.id + "' THEN " + updatingTsa.newPosition + " "
+                        // the step is moving towards end of pipeline, move affected steps back
+                        + "       WHEN " + updatingTsa.newPosition + " > " + updatingTsa.positionOfTheExistingStep + " THEN position - 1 "
+                        // the step is moving towards beginning of pipeline, move affected steps forward
+                        + "       WHEN " + updatingTsa.newPosition + " < " + updatingTsa.positionOfTheExistingStep + " THEN position + 1 "
+                        + "       ELSE position  "  // not a move (though we shouldn't get here due to the first WHEN
+                        + "     END "
+                        + " WHERE transformation_id = '" + record.transformationId + "'"
+                        + "   AND position BETWEEN SYMMETRIC " + updatingTsa.positionOfTheExistingStep + " AND " + updatingTsa.newPosition
+        ).mapEmpty();
+    }
     @Override
     public Future<Void> createDatabase(TenantPgPool pool) {
         return executeSqlStatements(pool,
-
                 "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + "." + table()
                 + " ("
                 + dbColumnName(ID) + " UUID PRIMARY KEY, "

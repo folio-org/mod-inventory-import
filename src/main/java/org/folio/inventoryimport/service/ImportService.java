@@ -537,14 +537,17 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
         UUID id = UUID.fromString(params.pathParameter("id").getString());
         ModuleStorageAccess db = new ModuleStorageAccess(vertx,tenant);
-        return db.updateEntity(id, transformationStep)
-                .onSuccess(result-> {
-                    if (result.rowCount()==1) {
-                        responseText(routingContext, 204).end();
-                    } else {
-                        responseText(routingContext, 404).end("Not found");
-                    }
-                }).mapEmpty();
+        return db.getEntity(id, transformationStep)
+                .compose(existingTsa -> {
+                            if (existingTsa == null) {
+                                responseText(routingContext, 404).end("Not found");
+                            } else {
+                                Integer positionOfExistingTsa = ((TransformationStep) existingTsa).record.position();
+                                transformationStep.updateTsaReorderSteps(db.getTenantPool(), positionOfExistingTsa)
+                                        .onSuccess(result -> responseText(routingContext, 204).end());
+                            }
+                            return Future.succeededFuture();
+                        });
     }
 
     private Future<Void> deleteTransformationStep(Vertx vertx, RoutingContext routingContext) {
