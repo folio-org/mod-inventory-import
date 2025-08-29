@@ -58,6 +58,10 @@ public class ModuleStorageAccess {
         }
     }
 
+    public TenantPgPool getTenantPool() {
+        return pool;
+    }
+
     public Future<String> getScript(RoutingContext routingContext) {
         String id = routingContext.request().getParam("id");
         Promise<String> promise = Promise.promise();

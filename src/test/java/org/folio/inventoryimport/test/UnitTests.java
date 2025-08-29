@@ -39,6 +39,8 @@ import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.time.ZonedDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
@@ -233,6 +235,66 @@ public class UnitTests {
         deleteRecord(PATH_TRANSFORMATIONS, transformationId, 200);
         deleteRecord(PATH_STEPS, stepId, 200);
     }
+
+    @Test
+    public void canReorderTransformationSteps() {
+        JsonObject transformation = JSON_TRANSFORMATION_CONFIG.copy();
+        String transformationId = "61f55639-17d6-417a-9d44-ffb4226ad020";
+        ArrayList<String> stepIds = new ArrayList<>(Arrays.asList(
+                "cdfbc4f0-ee67-4e9a-99c9-981bef6e51db",
+                "82df734e-ac9a-49f5-bb4a-a6cbd5949cfd",
+                "2b783382-2b64-4311-93b3-aec21fff7f0a",
+                "b6c74236-cf41-4f70-b3dd-fe50e21a69b9",
+                "a2f61369-248f-44a2-88ba-b8889b4d65dd"));
+        String TSA_1 = "17c03639-80ab-43f3-a10a-084a3444a17e";
+        String TSA_2 = "b72ea9c2-f830-4aa5-97d3-7ec49056fdf3";
+        String TSA_3 = "bbf9526e-182a-4ff6-a00f-5a0202c254f1";
+        String TSA_4 = "1c214995-4b7d-4b38-91e1-e393a0dca364";
+        String TSA_5 = "6c08e48e-61e4-4f8c-9773-d3cab225f8f5";
+        ArrayList<String> tsaIds = new ArrayList<>(Arrays.asList(
+                TSA_1, TSA_2, TSA_3, TSA_4, TSA_5));
+        transformation.put("id", transformationId);
+        postJsonObject(PATH_TRANSFORMATIONS, transformation);
+
+        for (int i=0; i<5; i++) {
+            JsonObject step = new JsonObject();
+            step.put("id", stepIds.get(i))
+                    .put("name", "test step " + i+1)
+                    .put("enabled", true)
+                    .put("script", Files.XSLT_COPY_XML_DOC);
+            postJsonObject(PATH_STEPS, step);
+            JsonObject tsa = new JsonObject();
+            tsa.put("id",tsaIds.get(i));
+            tsa.put("step", new JsonObject().put("id", stepIds.get(i)));
+            tsa.put("transformation", transformationId);
+            tsa.put("position", String.valueOf(i+1));
+            postJsonObject(PATH_TSAS, tsa);
+        }
+        for (int i = 0; i<5; i++) {
+            assertThat(getRecordById(PATH_TSAS, tsaIds.get(i)).extract().path("position"), is(i+1));
+        }
+
+        JsonObject tsa4 = new JsonObject(getRecordById(PATH_TSAS,TSA_4).extract().asPrettyString());
+        assertThat(tsa4.getString("position"), is("4"));
+        tsa4.put("position", "2"); // Move up
+        putJsonObject(PATH_TSAS + "/" + TSA_4, tsa4, 204);
+        assertThat(getRecordById(PATH_TSAS,TSA_4).extract().path("position"), is(2));
+        assertThat(getRecordById(PATH_TSAS,TSA_1).extract().path("position"), is(1));
+        assertThat(getRecordById(PATH_TSAS,TSA_2).extract().path("position"), is(3));
+        assertThat(getRecordById(PATH_TSAS,TSA_3).extract().path("position"), is(4));
+        assertThat(getRecordById(PATH_TSAS,TSA_5).extract().path("position"), is(5));
+
+        tsa4.put("position", "4"); // Move down
+        putJsonObject(PATH_TSAS + "/" + TSA_4, tsa4, 204);
+        assertThat(getRecordById(PATH_TSAS,TSA_4).extract().path("position"), is(4));
+        assertThat(getRecordById(PATH_TSAS,TSA_1).extract().path("position"), is(1));
+        assertThat(getRecordById(PATH_TSAS,TSA_2).extract().path("position"), is(2));
+        assertThat(getRecordById(PATH_TSAS,TSA_3).extract().path("position"), is(3));
+        assertThat(getRecordById(PATH_TSAS,TSA_5).extract().path("position"), is(5));
+
+    }
+
+
 
     @Test
     public void canPostGetPutStepGetXsltDelete() {
