@@ -918,7 +918,7 @@ public class UnitTests {
                 given()
                 .baseUri(BASE_URI_INVENTORY_IMPORT)
                 .header(OKAPI_TENANT)
-                        .header(OKAPI_URL)
+                .header(OKAPI_URL)
                 .get(api).asPrettyString()).getInteger("totalRecords");
 
     }

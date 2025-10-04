@@ -6,9 +6,9 @@ paths:
 
   /inventory-import/import-configs:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
     get:
       operationId: getImportConfigs
       description: Get import configuration records
@@ -28,7 +28,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/importConfigPostPut"
+              $ref: "#/components/schemas/importConfig"
         required: true
       responses:
         "201":
@@ -36,7 +36,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/importConfigGet"
+                $ref: "#/components/schemas/importConfig"
         "400":
           $ref: "#/components/responses/trait_400"
         "500":
@@ -44,9 +44,9 @@ paths:
 
   /inventory-import/import-configs/{id}:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -82,7 +82,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/importConfigGet"
+                $ref: "#/components/schemas/importConfig"
         "400":
           $ref: "#/components/responses/trait_400"
         "404":
@@ -96,7 +96,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/importConfigPostPut"
+              $ref: "#/components/schemas/importConfig"
       responses:
         "204":
           description:  No content
@@ -119,9 +119,9 @@ paths:
 
   /inventory-import/import-configs/xml-bulk/{id}/import:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -150,9 +150,9 @@ paths:
 
   /inventory-import/import-configs/xml-bulk/{id}/activate:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -174,9 +174,9 @@ paths:
 
   /inventory-import/import-configs/xml-bulk/{id}/pause:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -198,9 +198,9 @@ paths:
 
   /inventory-import/import-configs/xml-bulk/{id}/resume:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -223,9 +223,9 @@ paths:
 
   /inventory-import/import-jobs:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
     post:
       description: Create job log samples for test purposes etc, for example by import from another FOLIO instance.
       operationId: postImportJob
@@ -294,9 +294,9 @@ paths:
 
   /inventory-import/import-jobs/{id}:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -335,9 +335,9 @@ paths:
 
   /inventory-import/import-jobs/{id}/log:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -393,9 +393,9 @@ paths:
 
   /inventory-import/import-jobs/{id}/failed-records:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -471,9 +471,9 @@ paths:
 
   /inventory-import/failed-records/{id}:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
     delete:
       operationId: deleteRecordFailure
       description: Delete a past import job with all its logs
@@ -489,9 +489,9 @@ paths:
 
   /inventory-import/steps:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
     get:
       operationId: getSteps
       description: Get step records
@@ -546,9 +546,9 @@ paths:
 
   /inventory-import/steps/{id}:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -601,9 +601,9 @@ paths:
 
   /inventory-import/steps/{id}/script:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -642,9 +642,9 @@ paths:
 
   /inventory-import/transformations:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
     get:
       description: Get transformation definitions
       operationId: getTransformations
@@ -701,9 +701,9 @@ paths:
 
   /inventory-import/transformations/{id}:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -760,9 +760,9 @@ paths:
 
   /inventory-import/tsas:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
     get:
       parameters:
         - in: query
@@ -826,9 +826,9 @@ paths:
 
   /inventory-import/tsas/{id}:
     parameters:
-      - $ref: headers/okapi-tenant.yaml
-      - $ref: headers/okapi-token.yaml
-      - $ref: headers/okapi-url.yaml
+      - $ref: "#/components/parameters/okapi_tenant"
+      - $ref: "#/components/parameters/okapi_token"
+      - $ref: "#/components/parameters/okapi_url"
       - in: path
         name: id
         required: true
@@ -892,6 +892,364 @@ paths:
           description: No content
 
 components:
+  schemas:
+    transformations:
+      type: object
+      description: Transformation pipeline configuration records
+      properties:
+        transformations:
+          description: List of transformation pipeline definitions
+          type: array
+          items:
+            type: object
+            $ref: "#/components/schemas/transformation"
+    transformation:
+      type: object
+      description: >- 
+        A transformation pipeline configuration header that steps can be
+        assigned to
+      properties:
+        id:
+          type: string
+          description: >-
+            Unique identifier (UUID) for the transformation pipeline.
+        name:
+          type: string
+          description: Name of the transformation pipeline.
+        description:
+          type: string
+          description: Free-text details about the pipeline.
+        enabled:
+          type: string
+          description: >-
+           "Indicates if the transformation pipeline can be used by import jobs"
+          enum:
+            - "true"
+            - "false"
+    steps:
+      description: Collection of transformation step definitions
+      type: object
+      properties:
+        steps:
+          type: array
+          description: Transformation step definition records
+          items:
+            type: object
+            $ref: "#/components/schemas/step"
+    step:
+      description: Transformation step configuration.
+      type: object
+      properties:
+        id:
+          type: string
+          description: >-
+            Unique identifier (UUID) for the transformation step.
+        name:
+          type: string
+          description: A name assigned to the transformation step.
+        enabled:
+          type: boolean
+          description: >-
+            Indicates if this step is available to be used in a transformation pipeline.
+          default: false
+        description:
+          type: string
+          description: >-
+            Free text details about the step.
+        type:
+          type: string
+          description: The type of transformation step.
+          enum:
+            - XmlTransformStep
+            - CustomTransformStep
+        inputFormat:
+          type: string
+          description: >-
+            Free-text indication of the format of input data to the step.
+        outputFormat:
+          type: string
+          description: >-
+            Free-text indication of the format of the resulting output from the step.
+        script:
+          type: string
+          description: >-
+            The transformation script (XSLT) of the step.
+      required:
+        - name
+      additionalProperties: true
+    script:
+      type: object
+      description: 'Transformation step script (xslt as plain text)'
+      additionalProperties: true
+    sourceRecords:
+      type: object
+      description: A collection of XML source records
+      properties:
+        collection:
+          type: object
+          description: A batch of XML records
+          properties:
+            record:
+              type: array
+              items:
+                description: XML records to be transformed
+                type: object
+              additionalProperties: true
+    transformationStepAssociations:
+      type: object
+      description: Transformation/step associations
+      properties:
+        transformationSteps:
+          type: array
+          description: >-
+            List of transformation steps associated with transformation pipelines.
+          items:
+            type: object
+            $ref: "#/components/schemas/transformationStepAssociation"
+    transformationStepAssociation:
+      type: object
+      description: Transformation/step association record.
+      properties:
+        id:
+          type: string
+          description: Unique identifier (UUID) for the association.
+        stepId:
+          type: string
+          description: UUID referencing a transformation step.
+        transformationId:
+          type: string
+          description: UUID referencing a transformation pipeline.
+        position:
+          type: string
+          description: The position of the step amongst other steps in the pipeline.
+        step:
+          type: object
+          description: DEPRECATED, legacy Harvester schema for identifying step
+          properties:
+            id:
+              type: string
+              description: Id of the step associated with a pipeline.
+            name:
+              type: string
+              description: Name for the step associated with a pipeline.
+          additionalProperties: true
+        transformation:
+          type: string
+          description: DEPRECATED, legacy Harvester schema for identifying transformation pipeline.
+      additionalProperties: false
+      anyOf:
+        - required:
+          - stepId
+          - transformationId
+          - position
+        - required:
+          - step
+          - transformation
+          - position
+    logLines:
+      description: Harvest job log statements as JSON.
+      type: object
+      properties:
+        logLines:
+          description: Collection of Log4J log statements.
+          type: array
+          items:
+            type: object
+            $ref: "#/components/schemas/logLine"
+    logLine:
+      description: A single log4j log statement from a harvest job.
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier (UUID) for the log line.
+        importJobId:
+          type: string
+          description: UUID referencing the import job that generated the log.
+        timeStamp:
+          type: string
+          description: Date and time the log statement was created.
+        jobLabel:
+          description: Harvester's identification of the job that created the log line.
+          type: string
+        line:
+          description: The logged statement.
+          type: string
+    failedRecords:
+      type: object
+      description: Collection of failed-record error reports
+      properties:
+        failedRecords:
+          type: array
+          description: Array of failed record reports
+          items:
+            $ref: "#/components/schemas/failedRecord"
+    failedRecord:
+      type: object
+      description: A report of one or more data failures during import.
+      properties:
+        id:
+          type: string
+          description: Unique ID (UUID) for the error report.
+        importJobId:
+          type: string
+          description: UUID referencing the import job generation the report.
+        importConfigId:
+          type: string
+          description: UUID referencing the configuration that defined the import job.
+        importConfigName:
+          type: string
+          description: The name of the import configuration at the time the job was run.
+        recordErrors:
+          type: array
+          description: List of errors encountered during upsert or delete.
+          items:
+            type: object
+            description: Report of an error encountered during upsert or delete.
+            properties:
+              error:
+                type: object
+                description: Details about the error.
+                properties:
+                  label:
+                    type: string
+                    description: Short description.
+                  typeOfError:
+                    type: object
+                    description: Error category.
+                  typeOfRecord:
+                    type: string
+                    description: Type of entity affected by the error, i.e. HOLDINGS_RECORD.
+                  transaction:
+                    type: string
+                    description: Type of transaction triggering the error.
+                  message:
+                    type: object
+                    description: Error message produced by the backend component reporting the error.
+                  entity:
+                    type: object
+                    description: The record that was affected by the error.
+        originalRecord:
+          type: string
+          description: The original source record as plain text.
+        transformedRecord:
+          type: object
+          description: The JSON outcome of the transformation of the original record.
+        timeStamp:
+          type: string
+          description: The date and time the error occurred.
+        recordNumber:
+          type: string
+          description: The identifier assigned to this error report by Inventory Import.
+    importConfigs:
+      type: object
+      description: Collection of import configurations.
+      properties:
+        importConfigs:
+          type: array
+          description: List of import configurations.
+          items:
+            type: object
+            description: An import configuration
+            $ref: "#/components/schemas/importConfig"
+    importConfig:
+      type: object
+      description: "Configuration of import jobs."
+      properties:
+        id:
+          type: string
+          description: Unique identifier (UUID) for the configuration.
+        name:
+          type: string
+          description: A name for the configuration.
+        type:
+          type: string
+          description: DEPRECATED They type of import job, only bulk XML supported.
+        url:
+          type: string
+          description: OBSOLETE, IGNORED The URL(s) used for retrieving the source records.
+        allowErrors:
+          type: boolean
+          description: OBSOLETE, IGNORED.
+        recordLimit:
+          type: integer
+          description: NOT IMPLEMENTED.
+        transformationId:
+          type: string
+          description: UUID referencing the transformation pipeline to use.
+        storageId:
+          type: string
+          description: OBSOLETE, IGNORED. Storage is always present FOLIO inventory.
+    importJobs:
+      type: object
+      description: Collection of import job execution records.
+      properties:
+        importJobs:
+          type: array
+          description: List of import jobs.
+          items:
+            type: object
+            $ref: "#/components/schemas/importJob"
+    importJob:
+      type: object
+      description: Report on the execution of an import job.
+      properties:
+        id:
+          type: string
+          description: 'Unique identifier (UUID) for the import job report.'
+        importConfigName:
+          type: string
+          description: The name of the import configuration at the time of logging the import job.
+        importConfigId:
+          type: string
+          description: UUID referencing the import configuration that defined the import job run.
+        importType:
+          type: string
+          description: 'Type of import job (obsolete, always bulk XML).'
+        recordLimit:
+          type: integer
+          description: 'Not supported. Would indicates the limit -- if any -- on the maximum number of records to load according to the configuration.'
+        transformation:
+          type: string
+          description: Then name for the transformation pipeline used for the job.
+        status:
+          type: string
+          description: The intermittent state of final outcome of the job.
+        started:
+          type: string
+          description: Timestamp when the job started.
+        finished:
+          type: string
+          description: Timestamp when the job ended.
+        amountHarvested:
+          type: integer
+          description: The number of incoming records processed.
+        message:
+          type: string
+          description: A description of the outcome of the import.
+
+  parameters:
+    okapi_tenant:
+      in: header
+      name: X-Okapi-Tenant
+      description: Okapi Tenant
+      required: false
+      schema:
+        type: string
+    okapi_token:
+      in: header
+      name: X-Okapi-Token
+      description: Okapi Token
+      required: false
+      schema:
+        type: string
+    okapi_url:
+      in: header
+      name: X-Okapi-Url
+      description: Okapi URL
+      required: false
+      schema:
+        type: string
   responses:
     trait_400:
       description: Bad request
@@ -918,36 +1276,3 @@ components:
           schema:
             type: string
             example: Internal server error, contact administrator
-  schemas:
-    transformations:
-      $ref: schemas/transformations.json
-    transformation:
-      $ref: schemas/transformation.json
-    steps:
-      $ref: schemas/steps.json
-    step:
-      $ref: schemas/step.json
-    script:
-      $ref: schemas/script.json
-    sourceRecords:
-      $ref: schemas/sourceRecords.json
-    transformationStepAssociation:
-      $ref: schemas/transformationStepAssociation.json
-    transformationStepAssociations:
-      $ref: schemas/transformationStepAssociations.json
-    logLines:
-      $ref: schemas/logLines.json
-    failedRecord:
-      $ref: schemas/failedRecord.json
-    failedRecords:
-      $ref: schemas/failedRecords.json
-    importConfigPostPut:
-      $ref: schemas/importConfigPostPut.json
-    importConfigGet:
-      $ref: schemas/importConfigGet.json
-    importConfigs:
-      $ref: schemas/importConfigs.json
-    importJobs:
-      $ref: schemas/importJobs.json
-    importJob:
-      $ref: schemas/importJob.json
