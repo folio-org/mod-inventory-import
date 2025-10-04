@@ -78,7 +78,7 @@ public class UnitTests {
         vertx.deployVerticle(new MainVerticle(), deploymentOptions)
                 .onComplete(context.asyncAssertSuccess(x ->
                         fakeFolioApis = new FakeFolioApis(vertx, context)));
-        vertx.fileSystem().deleteRecursive(FileQueue.SOURCE_FILES_ROOT_DIR,true);
+        vertx.fileSystem().deleteRecursive(FileQueue.SOURCE_FILES_ROOT_DIR);
     }
 
     @AfterClass

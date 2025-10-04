@@ -1,4 +1,4 @@
-openapi: 3.0.0
+openapi: 3.1.0
 info:
   title: Inventory import API
   version: v0.1
@@ -12,6 +12,25 @@ paths:
     get:
       operationId: getImportConfigs
       description: Get import configuration records
+      parameters:
+        - in: query
+          name: query
+          required: false
+          description: CQL
+          schema:
+            type: string
+        - in: query
+          name: offset
+          required: false
+          description: result set start row
+          schema:
+            type: string
+        - in: query
+          name: limit
+          required: false
+          description: result set max rows
+          schema:
+            type: string
       responses:
         "200":
           description: OK
@@ -56,26 +75,6 @@ paths:
     get:
       operationId: getImportConfig
       description: Get import configuration record
-      parameters:
-        - in: query
-          name: query
-          required: false
-          description: CQL
-          schema:
-            type: string
-        - in: query
-          name: offset
-          required: false
-          description: result set start row
-          schema:
-            type: string
-        - in: query
-          name: limit
-          required: false
-          description: result set max rows
-          schema:
-            type: string
-
       responses:
         "200":
           description: OK
@@ -133,10 +132,9 @@ paths:
       description: Load XML document using given import configuration
       requestBody:
         content:
-          application/xml:
+          text/plain:
             schema:
-              $ref: "#/components/schemas/sourceRecords"
-        required: true
+              type: string
       responses:
         "200":
           description: Source file uploaded
@@ -146,6 +144,7 @@ paths:
           $ref: "#/components/responses/trait_404"
         "500":
           $ref: "#/components/responses/trait_500"
+
 
 
   /inventory-import/import-configs/xml-bulk/{id}/activate:
@@ -253,7 +252,7 @@ paths:
         - in: query
           name: query
           required: false
-          description: CQL query, import config ID, name, type, status, message, and amount imported in queries, and the same fields plus started and finished in sorting
+          description: CQL
           schema:
             type: string
         - in: query
@@ -261,13 +260,13 @@ paths:
           required: false
           description: result set start row
           schema:
-            type: string
+            type: integer
         - in: query
           name: limit
           required: false
           description: result set max rows
           schema:
-            type: string
+            type: integer
         - in: query
           name: from
           required: false
@@ -348,13 +347,6 @@ paths:
     get:
       operationId: getImportJobLogLines
       description: Retrieves the log of a past import job
-      parameters:
-        - in: query
-          name: query
-          required: false
-          description: CQL, supporting import config ID, config name, line in query terms
-          schema:
-            type: string
       responses:
         "200":
           description: Logs for an import job
@@ -408,12 +400,6 @@ paths:
       description: Retrieves the failed records of an import job
       parameters:
         - in: query
-          name: query
-          required: false
-          description: CQL query
-          schema:
-            type: string
-        - in: query
           name: from
           required: false
           description: date range parameter on error report timestamp
@@ -430,13 +416,13 @@ paths:
           required: false
           description: result set start row
           schema:
-            type: string
+            type: integer
         - in: query
           name: limit
           required: false
           description: result set max rows
           schema:
-            type: string
+            type: integer
       responses:
         "200":
           description: List of failed records for an import job
@@ -617,7 +603,7 @@ paths:
         "200":
           description: OK
           content:
-            application/xml:
+            text/plain:
               schema:
                 $ref: "#/components/schemas/script"
         "500":
@@ -627,9 +613,9 @@ paths:
       description: Update a transformation step script
       requestBody:
         content:
-          application/xml:
+          text/plain:
             schema:
-              $ref: "#/components/schemas/script"
+              type: string
       responses:
         "204":
           description: OK, no content
@@ -660,13 +646,13 @@ paths:
           required: false
           description: result set start row
           schema:
-            type: string
+            type: integer
         - in: query
           name: limit
           required: false
           description: result set max rows
           schema:
-            type: string
+            type: integer
       responses:
         "200":
           description: Transformation pipelines returned
@@ -776,13 +762,13 @@ paths:
           required: false
           description: result set start row
           schema:
-            type: string
+            type: integer
         - in: query
           name: limit
           required: false
           description: result set max rows
           schema:
-            type: string
+            type: integer
       operationId: getTsas
       description: Get transformation step associations
       responses:

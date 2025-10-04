@@ -4,13 +4,13 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.RoutingContext;
 import io.vertx.sqlclient.RowIterator;
 import io.vertx.sqlclient.SqlResult;
 import io.vertx.sqlclient.templates.SqlTemplate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.moduledata.*;
+import org.folio.inventoryimport.service.ServiceRequest;
 import org.folio.tlib.postgres.TenantPgPool;
 
 import java.time.LocalDateTime;
@@ -62,8 +62,8 @@ public class ModuleStorageAccess {
         return pool;
     }
 
-    public Future<String> getScript(RoutingContext routingContext) {
-        String id = routingContext.request().getParam("id");
+    public Future<String> getScript(ServiceRequest request) {
+        String id = request.requestParam("id");
         Promise<String> promise = Promise.promise();
         getEntity(UUID.fromString(id), new Step()).onComplete(step -> {
             if (step.result() != null) {
@@ -75,9 +75,9 @@ public class ModuleStorageAccess {
         return promise.future();
     }
 
-    public Future<Void> putScript(RoutingContext routingContext) {
-        String id = routingContext.request().getParam("id");
-        String script = routingContext.body().asString();
+    public Future<Void> putScript(ServiceRequest request) {
+        String id = request.requestParam("id");
+        String script = request.bodyAsString();
         Promise<Void> promise = Promise.promise();
         getEntity(UUID.fromString(id), new Step()).onComplete(getStep -> {
             if (getStep.result() != null) {

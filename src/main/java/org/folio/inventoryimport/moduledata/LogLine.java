@@ -2,11 +2,11 @@ package org.folio.inventoryimport.moduledata;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.RoutingContext;
 import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.TupleMapper;
 import org.folio.inventoryimport.moduledata.database.SqlQuery;
 import org.folio.inventoryimport.moduledata.database.Tables;
+import org.folio.inventoryimport.service.ServiceRequest;
 import org.folio.tlib.postgres.TenantPgPool;
 
 import java.util.HashMap;
@@ -104,8 +104,8 @@ public class LogLine extends Entity {
                 });
     }
 
-    public SqlQuery makeSqlFromCqlQuery(RoutingContext routingContext, String schemaDotTable) {
-        SqlQuery sql = super.makeSqlFromCqlQuery(routingContext, schemaDotTable);
+    public SqlQuery makeSqlFromCqlQuery(ServiceRequest request, String schemaDotTable) {
+        SqlQuery sql = super.makeSqlFromCqlQuery(request, schemaDotTable);
         sql.withAdditionalOrderByField(dbColumnName(TIME_STAMP));
         return sql;
     }

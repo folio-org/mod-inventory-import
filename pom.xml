@@ -7,8 +7,9 @@
     <properties>
         <argLine />
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <okapi.version>5.3.0</okapi.version>
-        <vertx.version>4.5.3</vertx.version>
+        <folio-vertx-lib.version>4.0.0</folio-vertx-lib.version>
+        <okapi.version>7.0.0</okapi.version>
+        <vertx.version>5.0.2</vertx.version>
         <mockito.version>5.16.0</mockito.version>
     </properties>
     <dependencyManagement>
@@ -16,7 +17,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-bom</artifactId>
-                <version>2.23.0</version>
+                <version>2.24.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -38,11 +39,6 @@
                 <version>${okapi.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.ongres.scram</groupId>
-                <artifactId>client</artifactId>
-                <version>2.1</version>
-            </dependency>
-            <dependency>
                 <groupId>org.z3950.zing</groupId>
                 <artifactId>cql-java</artifactId>
                 <version>1.13</version>
@@ -50,12 +46,12 @@
             <dependency>
                 <groupId>io.rest-assured</groupId>
                 <artifactId>rest-assured</artifactId>
-                <version>5.4.0</version>
+                <version>5.5.1</version>
             </dependency>
             <dependency>
                 <groupId>org.junit</groupId>
                 <artifactId>junit-bom</artifactId>
-                <version>5.10.2</version>
+                <version>5.12.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -67,12 +63,12 @@
             <dependency>
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-core</artifactId>
-                <version>5.10.0</version>
+                <version>5.17.0</version>
             </dependency>
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.20.1</version>
+                <version>1.20.6</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -95,12 +91,12 @@
         <dependency>
             <groupId>org.folio</groupId>
             <artifactId>vertx-lib</artifactId>
-            <version>3.4.0</version>
+            <version>${folio-vertx-lib.version}</version>
         </dependency>
         <dependency>
             <groupId>org.folio</groupId>
             <artifactId>vertx-lib-pg-testing</artifactId>
-            <version>3.2.0</version>
+            <version>${folio-vertx-lib.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -109,19 +105,15 @@
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
-            <artifactId>vertx-web</artifactId>
+            <artifactId>vertx-launcher-application</artifactId>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
-            <artifactId>vertx-web-openapi</artifactId>
+            <artifactId>vertx-web-openapi-router</artifactId>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-rx-java2</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-web-api-contract</artifactId>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
@@ -193,6 +185,16 @@
             <artifactId>httpclient</artifactId>
             <version>4.5.13</version>
         </dependency>
+        <dependency>
+            <groupId>com.ongres.scram</groupId>
+            <artifactId>client</artifactId>
+            <version>2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.18.0</version>
+        </dependency>
 
         <!-- Test dependencies -->
         <dependency>
@@ -226,6 +228,11 @@
             <version>4.2.0</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-web</artifactId>
+            <version>5.0.2</version>
+        </dependency>
     </dependencies>
     <build>
         <pluginManagement>
@@ -233,12 +240,12 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.2.0</version>
+                    <version>3.4.2</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-resources-plugin</artifactId>
-                    <version>3.2.0</version>
+                    <version>3.3.1</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -246,7 +253,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>3.14.0</version>
                 <configuration>
                     <release>21</release>
                     <encoding>UTF-8</encoding>
@@ -285,7 +292,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>2.22.2</version>
+                <version>3.5.3</version>
                 <executions>
                     <execution>
                         <goals>
@@ -298,7 +305,7 @@
             <plugin>
                 <!-- *-source.jar for https://repository.folio.org -->
                 <artifactId>maven-source-plugin</artifactId>
-                <version>3.2.1</version>
+                <version>3.3.1</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -312,7 +319,7 @@
             <plugin>
                 <!-- *-javadoc.jar for https://repository.folio.org -->
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.3.1</version>
+                <version>3.11.2</version>
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
@@ -326,7 +333,7 @@
             <plugin>
                 <!-- Enforce that this deployment runs AFTER attach-sources and attach-javadocs -->
                 <artifactId>maven-deploy-plugin</artifactId>
-                <version>3.0.0-M2</version>
+                <version>3.1.4</version>
                 <executions>
                     <execution>
                         <id>deploy</id>
@@ -350,7 +357,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>3.3.1</version>
+                <version>3.6.0</version>
                 <dependencies>
                     <dependency>
                         <groupId>org.folio</groupId>
@@ -382,7 +389,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
+                <version>3.6.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -393,7 +400,7 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
-                                        <Main-Class>io.vertx.core.Launcher</Main-Class>
+                                        <Main-Class>org.folio.okapi.common.MainLauncher</Main-Class>
                                         <Main-Verticle>org.folio.inventoryimport.MainVerticle</Main-Verticle>
                                         <Multi-Release>true</Multi-Release>
                                     </manifestEntries>
