@@ -78,7 +78,7 @@ public class UnitTests {
         vertx.deployVerticle(new MainVerticle(), deploymentOptions)
                 .onComplete(context.asyncAssertSuccess(x ->
                         fakeFolioApis = new FakeFolioApis(vertx, context)));
-        vertx.fileSystem().deleteRecursive(FileQueue.SOURCE_FILES_ROOT_DIR,true);
+        vertx.fileSystem().deleteRecursive(FileQueue.SOURCE_FILES_ROOT_DIR);
     }
 
     @AfterClass
@@ -918,7 +918,7 @@ public class UnitTests {
                 given()
                 .baseUri(BASE_URI_INVENTORY_IMPORT)
                 .header(OKAPI_TENANT)
-                        .header(OKAPI_URL)
+                .header(OKAPI_URL)
                 .get(api).asPrettyString()).getInteger("totalRecords");
 
     }

@@ -1,8 +1,8 @@
 package org.folio.inventoryimport.service.fileimport;
 
-import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.file.FileSystem;
+import org.folio.inventoryimport.service.ServiceRequest;
 
 import java.io.File;
 import java.util.*;
@@ -15,10 +15,10 @@ public class FileQueue {
     private final String pathToProcessingSlot;
     private final FileSystem fs;
 
-    public FileQueue(Vertx vertx, String tenant, String jobConfigId) {
-        this.fs = vertx.fileSystem();
+    public FileQueue(ServiceRequest request, String jobConfigId) {
+        this.fs = request.vertx().fileSystem();
         String sourceFilesRootDir = SOURCE_FILES_ROOT_DIR;
-        String tenantRootDir = sourceFilesRootDir + "/" + tenant;
+        String tenantRootDir = sourceFilesRootDir + "/" + request.tenant();
         if (!fs.existsBlocking(sourceFilesRootDir)) {
             fs.mkdirBlocking(sourceFilesRootDir);
         }

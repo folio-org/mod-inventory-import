@@ -1,7 +1,9 @@
 package org.folio.inventoryimport.test.fakestorage;
 
-import io.vertx.core.impl.logging.Logger;
+
 import io.vertx.core.json.JsonObject;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -11,8 +13,7 @@ public class FolioApiRecord {
     public static final String ID = "id";
     public static final String VERSION = "_version";
     protected final JsonObject recordJson;
-
-    private final Logger logger = io.vertx.core.impl.logging.LoggerFactory.getLogger("FolioApiRecord");
+    public static final Logger logger = LogManager.getLogger("folioApiRecord");
 
     public FolioApiRecord() {
         recordJson = new JsonObject();

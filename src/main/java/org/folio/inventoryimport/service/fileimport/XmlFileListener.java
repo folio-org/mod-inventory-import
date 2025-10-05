@@ -4,6 +4,7 @@ import io.vertx.core.*;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.inventoryimport.service.ServiceRequest;
 
 import java.io.File;
 import java.util.UUID;
@@ -22,26 +23,26 @@ public class XmlFileListener extends FileListener {
 
     public static final Logger logger = LogManager.getLogger("queued-files-processing");
 
-    public XmlFileListener(String tenant, String importConfigurationId, Vertx vertx, RoutingContext routingContext) {
-        this.tenant = tenant;
+    public XmlFileListener(ServiceRequest request, String importConfigurationId) {
+        this.tenant = request.tenant();
         this.importConfigurationId = UUID.fromString(importConfigurationId);
-        this.routingContext = routingContext;
-        this.fileQueue = new FileQueue(vertx, tenant, importConfigurationId);
+        this.routingContext = request.routingContext();
+        this.fileQueue = new FileQueue(request, importConfigurationId);
     }
 
-    public static Future<String> deployIfNotDeployed(Vertx vertx, String tenant, String importConfigurationId, RoutingContext routingContext) {
+    public static Future<String> deployIfNotDeployed(ServiceRequest request, String importConfigurationId) {
         Promise<String> promise = Promise.promise();
-        FileListener fileListener = FileListeners.getFileListener(tenant, importConfigurationId);
+        FileListener fileListener = FileListeners.getFileListener(request.tenant(), importConfigurationId);
         if (fileListener == null) {
-            Verticle verticle = FileListeners.addFileListener(tenant, importConfigurationId, new XmlFileListener(tenant, importConfigurationId, vertx, routingContext));
-            vertx.deployVerticle(verticle,
+            Verticle verticle = FileListeners.addFileListener(request.tenant(), importConfigurationId, new XmlFileListener(request, importConfigurationId));
+            request.vertx().deployVerticle(verticle,
                     new DeploymentOptions().setWorkerPoolSize(1).setMaxWorkerExecuteTime(10).setMaxWorkerExecuteTimeUnit(TimeUnit.MINUTES)).onComplete(
                     started -> {
                         if (started.succeeded()) {
-                            logger.info("Started verticle [" + started.result() + "] for [" + tenant + "] and configuration ID [" + importConfigurationId + "].");
+                            logger.info("Started verticle [" + started.result() + "] for [" + request.tenant() + "] and configuration ID [" + importConfigurationId + "].");
                             promise.complete("Started verticle [" + started.result() + "] for configuration ID [" + importConfigurationId + "].");
                         } else {
-                            logger.error("Couldn't start file processor verticle for tenant [" + tenant + "] and import configuration ID [" + importConfigurationId + "].");
+                            logger.error("Couldn't start file processor verticle for tenant [" + request.tenant() + "] and import configuration ID [" + importConfigurationId + "].");
                             promise.fail("Couldn't start file processor verticle for import configuration ID [" + importConfigurationId + "].");
                         }
                     });

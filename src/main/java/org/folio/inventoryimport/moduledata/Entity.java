@@ -2,10 +2,6 @@ package org.folio.inventoryimport.moduledata;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.validation.RequestParameter;
-import io.vertx.ext.web.validation.RequestParameters;
-import io.vertx.ext.web.validation.ValidationHandler;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.templates.RowMapper;
@@ -14,6 +10,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.inventoryimport.moduledata.database.SqlQuery;
 import org.folio.inventoryimport.moduledata.database.Tables;
+import org.folio.inventoryimport.service.ServiceRequest;
 import org.folio.tlib.postgres.PgCqlDefinition;
 import org.folio.tlib.postgres.PgCqlQuery;
 import org.folio.tlib.postgres.TenantPgPool;
@@ -178,20 +175,19 @@ public abstract class Entity {
     /**
      * Gets a SQL query string.
      */
-    public SqlQuery makeSqlFromCqlQuery(RoutingContext routingContext, String schemaDotTable) {
+    public SqlQuery makeSqlFromCqlQuery(ServiceRequest request, String schemaDotTable) {
         PgCqlDefinition definition = getQueryableFields();
 
-        RequestParameters params = routingContext.get(ValidationHandler.REQUEST_CONTEXT_KEY);
-        RequestParameter query = params.queryParameter("query");
-        RequestParameter offset =  params.queryParameter("offset");
-        RequestParameter limit = params.queryParameter("limit");
+        String query = request.requestParam("query");
+        String offset =  request.requestParam("offset");
+        String limit = request.requestParam("limit");
 
         String select = "SELECT * ";
         String from = "FROM " + schemaDotTable;
         String whereClause = "";
         String orderByClause = "";
         if (query != null && !query.isEmpty()) {
-            PgCqlQuery pgCqlQuery = definition.parse(query.getString());
+            PgCqlQuery pgCqlQuery = definition.parse(query);
             if (pgCqlQuery.getWhereClause() != null) {
                 whereClause = jsonPropertiesToColumnNames(pgCqlQuery.getWhereClause());
             }
