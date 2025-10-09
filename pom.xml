@@ -98,6 +98,13 @@
             <groupId>org.folio</groupId>
             <artifactId>vertx-lib</artifactId>
             <version>${folio-vertx-lib.version}</version>
+            <!-- remove this exclusions after upgrading to folio-vertx-lib >= 4.0.1, see https://github.com/folio-org/folio-vertx-lib/pull/104 -->
+            <exclusions>
+                <exclusion>
+                    <groupId>com.ongres.scram</groupId>
+                    <artifactId>client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.folio</groupId>
@@ -175,11 +182,6 @@
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <version>4.5.13</version>
-        </dependency>
-        <dependency>
-            <groupId>com.ongres.scram</groupId>
-            <artifactId>client</artifactId>
-            <version>2.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
