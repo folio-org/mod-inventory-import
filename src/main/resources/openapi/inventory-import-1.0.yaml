@@ -1,4 +1,4 @@
-openapi: 3.1.0
+openapi: 3.1.1
 info:
   title: Inventory import API
   version: v0.1
@@ -13,12 +13,6 @@ paths:
       operationId: getImportConfigs
       description: Get import configuration records
       parameters:
-        - in: query
-          name: query
-          required: false
-          description: CQL
-          schema:
-            type: string
         - in: query
           name: offset
           required: false
@@ -250,12 +244,6 @@ paths:
       description: Retrieves list of past import jobs
       parameters:
         - in: query
-          name: query
-          required: false
-          description: CQL
-          schema:
-            type: string
-        - in: query
           name: offset
           required: false
           description: result set start row
@@ -483,12 +471,6 @@ paths:
       description: Get step records
       parameters:
         - in: query
-          name: query
-          required: false
-          description: CQL
-          schema:
-            type: string
-        - in: query
           name: offset
           required: false
           description: result set start row
@@ -636,12 +618,6 @@ paths:
       operationId: getTransformations
       parameters:
         - in: query
-          name: query
-          required: false
-          description: CQL
-          schema:
-            type: string
-        - in: query
           name: offset
           required: false
           description: result set start row
@@ -751,12 +727,6 @@ paths:
       - $ref: "#/components/parameters/okapi_url"
     get:
       parameters:
-        - in: query
-          name: query
-          required: false
-          description: CQL
-          schema:
-            type: string
         - in: query
           name: offset
           required: false
@@ -887,7 +857,6 @@ components:
           description: List of transformation pipeline definitions
           type: array
           items:
-            type: object
             $ref: "#/components/schemas/transformation"
     transformation:
       type: object
@@ -920,7 +889,6 @@ components:
           type: array
           description: Transformation step definition records
           items:
-            type: object
             $ref: "#/components/schemas/step"
     step:
       description: Transformation step configuration.
@@ -990,7 +958,6 @@ components:
           description: >-
             List of transformation steps associated with transformation pipelines.
           items:
-            type: object
             $ref: "#/components/schemas/transformationStepAssociation"
     transformationStepAssociation:
       type: object
@@ -1040,7 +1007,6 @@ components:
           description: Collection of Log4J log statements.
           type: array
           items:
-            type: object
             $ref: "#/components/schemas/logLine"
     logLine:
       description: A single log4j log statement from a harvest job.
@@ -1135,8 +1101,6 @@ components:
           type: array
           description: List of import configurations.
           items:
-            type: object
-            description: An import configuration
             $ref: "#/components/schemas/importConfig"
     importConfig:
       type: object
@@ -1174,7 +1138,6 @@ components:
           type: array
           description: List of import jobs.
           items:
-            type: object
             $ref: "#/components/schemas/importJob"
     importJob:
       type: object

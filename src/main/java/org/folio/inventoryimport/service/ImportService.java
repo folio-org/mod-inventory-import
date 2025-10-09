@@ -138,7 +138,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
                     exceptionResponse(e, ctx);
                 }
             })
-            .addFailureHandler(this::routerExceptionResponse);  // OpenAPI validation exception
+            .addFailureHandler(this::routerExceptionResponse);
     }
 
 
@@ -156,9 +156,15 @@ public class ImportService implements RouterCreator, TenantInitHooks {
      * an error in a polymorph schema, like in `harvestable` of type `oaiPmh` vs `xmlBulk`.
      */
     private void routerExceptionResponse(RoutingContext ctx) {
-        String message = null;
-        if (ctx.failure() != null) message = ctx.failure().getMessage();
-        responseError(ctx, ctx.statusCode(), message);
+        if (ctx.failure() != null) {
+            String message = ctx.failure().getMessage();
+            responseError(ctx, ctx.statusCode(), message + ": " +
+                (ctx.failure().getCause() != null ? ctx.failure().getCause().getMessage() : " (no cause provided)"));
+        } else {
+            responseError(ctx, ctx.statusCode(), " router exception");
+        }
+
+
     }
 
     @Override
