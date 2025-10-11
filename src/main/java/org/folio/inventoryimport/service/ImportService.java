@@ -543,8 +543,9 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> postTransformationStep(ServiceRequest request) {
-        Entity transformationStep = new TransformationStep().fromJson(request.bodyAsJson());
-        return storeEntityRespondWith201(request, transformationStep);
+        TransformationStep transformationStep = new TransformationStep().fromJson(request.bodyAsJson());
+        return transformationStep.createTsaRepositionSteps(request)
+            .onSuccess(result -> responseText(request.routingContext, 201).end());
     }
 
     private Future<Void> getTransformationStepById(ServiceRequest request) {
@@ -559,14 +560,13 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         TransformationStep transformationStep = new TransformationStep().fromJson(request.bodyAsJson());
 
         UUID id = UUID.fromString(request.requestParam("id"));
-        ModuleStorageAccess db = request.moduleStorageAccess();
-        return db.getEntity(id, transformationStep)
+        return request.moduleStorageAccess().getEntity(id, transformationStep)
                 .compose(existingTsa -> {
                             if (existingTsa == null) {
                                 responseText(request.routingContext, 404).end("Not found");
                             } else {
                                 Integer positionOfExistingTsa = ((TransformationStep) existingTsa).record.position();
-                                transformationStep.updateTsaReorderSteps(db.getTenantPool(), positionOfExistingTsa)
+                                transformationStep.updateTsaRepositionSteps(request, positionOfExistingTsa)
                                         .onSuccess(result -> responseText(request.routingContext, 204).end());
                             }
                             return Future.succeededFuture();
@@ -574,7 +574,19 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> deleteTransformationStep(ServiceRequest request) {
-        return deleteEntity(request, new TransformationStep());
+        UUID id = UUID.fromString(request.requestParam("id"));
+        ModuleStorageAccess db = request.moduleStorageAccess();
+        return db.getEntity(id, new TransformationStep())
+            .compose(existingTsa -> {
+                if (existingTsa == null) {
+                    responseText(request.routingContext, 404).end("Not found");
+                } else {
+                    Integer positionOfExistingTsa = ((TransformationStep) existingTsa).record.position();
+                    ((TransformationStep) existingTsa).deleteTsaRepositionSteps(db.getTenantPool(), positionOfExistingTsa)
+                        .onSuccess(result -> responseText(request.routingContext, 200).end());
+                }
+                return Future.succeededFuture();
+            });
     }
 
     private Future<Void> stageXmlSourceFile(ServiceRequest request) {
