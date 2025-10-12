@@ -6,6 +6,7 @@ import io.vertx.sqlclient.templates.RowMapper;
 import io.vertx.sqlclient.templates.SqlTemplate;
 import io.vertx.sqlclient.templates.TupleMapper;
 import org.folio.inventoryimport.moduledata.database.Tables;
+import org.folio.inventoryimport.service.ServiceRequest;
 import org.folio.tlib.postgres.TenantPgPool;
 
 import java.util.Collections;
@@ -150,6 +151,12 @@ public class TransformationStep extends Entity {
                         + " WHERE transformation_id = '" + record.transformationId + "'"
                         + "   AND position BETWEEN SYMMETRIC " + updatingTsa.positionOfTheExistingStep + " AND " + updatingTsa.newPosition
         ).mapEmpty();
+    }
+    public Future<Void> deleteStepsOfATransformation(ServiceRequest request, UUID transformationId) {
+        TenantPgPool pool = request.moduleStorageAccess().getTenantPool();
+        return executeSqlStatements(pool,
+            "DELETE FROM " + this.table(pool.getSchema())
+                + " WHERE transformation_id = '" + transformationId.toString() + "'").mapEmpty();
     }
     @Override
     public Future<Void> createDatabase(TenantPgPool pool) {

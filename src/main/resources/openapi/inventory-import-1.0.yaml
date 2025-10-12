@@ -873,16 +873,31 @@ components:
           description: Name of the transformation pipeline.
         description:
           type: string
-          description: Free-text details about the pipeline.
+          description: "Free-text details about the pipeline."
         enabled:
           type: string
           description: >-
-           "Indicates if the transformation pipeline can be used by import jobs"
+           "Indicates if the transformation pipeline can be used by import jobs."
           enum:
             - "true"
             - "false"
+        steps:
+          type: array
+          description: The transformation steps making up this pipeline, in order of execution.
+          items:
+            type: object
+            description: A transformation step
+            properties:
+              id:
+                type: string
+                description: The ID (UUID) of the step at this position in the transformation pipeline.
+              name:
+                type: string
+                description: The (unique) name of the step.
+            required:
+              - id
     steps:
-      description: Collection of transformation step definitions
+      description: Collection of transformation step definitions, to be referenced from pipelines.
       type: object
       properties:
         steps:
