@@ -1,7 +1,7 @@
 openapi: 3.1.1
 info:
   title: Inventory import API
-  version: v0.1
+  version: v1.0
 paths:
 
   /inventory-import/import-configs:
@@ -138,8 +138,6 @@ paths:
           $ref: "#/components/responses/trait_404"
         "500":
           $ref: "#/components/responses/trait_500"
-
-
 
   /inventory-import/import-configs/xml-bulk/{id}/activate:
     parameters:
@@ -449,6 +447,14 @@ paths:
       - $ref: "#/components/parameters/okapi_token"
       - $ref: "#/components/parameters/okapi_url"
     delete:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Failed record identifier
+          schema:
+            type: string
+            format: uuid
       operationId: deleteRecordFailure
       description: Delete a past import job with all its logs
       responses:
