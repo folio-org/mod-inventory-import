@@ -67,7 +67,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         validatingHandler(vertx, routerBuilder, "postTransformation", this::postTransformation);
         validatingHandler(vertx, routerBuilder, "getTransformation", this::getTransformationById);
         validatingHandler(vertx, routerBuilder, "getTransformations", this::getTransformations);
-        validatingHandler(vertx, routerBuilder, "putTransformation", this::putTransformation);
+        validatingHandler(vertx, routerBuilder, "putTransformation", this::updateTransformation);
         validatingHandler(vertx, routerBuilder, "deleteTransformation", this::deleteTransformation);
         validatingHandler(vertx, routerBuilder, "postStep", this::postStep);
         validatingHandler(vertx, routerBuilder, "getSteps", this::getSteps);
@@ -152,8 +152,7 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     /**
-     * Returns request validation exception, potentially with improved error message if problem was
-     * an error in a polymorph schema, like in `harvestable` of type `oaiPmh` vs `xmlBulk`.
+     * OAS validation exception.
      */
     private void routerExceptionResponse(RoutingContext ctx) {
         if (ctx.failure() != null) {
@@ -513,8 +512,12 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> postTransformation(ServiceRequest request) {
-        Entity transformation = new Transformation().fromJson(request.bodyAsJson());
-        return storeEntityRespondWith201(request, transformation);
+        Transformation transformation = new Transformation().fromJson(request.bodyAsJson());
+        return request.moduleStorageAccess().storeEntity(transformation)
+            .compose(transformationId ->
+                request.moduleStorageAccess()
+                    .storeEntities(new TransformationStep(), transformation.getListOfTransformationSteps()))
+            .onSuccess(res -> responseText(request.routingContext(), 201).end(transformation.asJson().encodePrettily()));
     }
 
     private Future<Void> getTransformationById(ServiceRequest request) {
@@ -525,13 +528,21 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         return getEntities(request, new Transformation());
     }
 
-    private Future<Void> putTransformation(ServiceRequest request) {
+    private Future<Void> updateTransformation(ServiceRequest request) {
         Transformation transformation = new Transformation().fromJson(request.bodyAsJson());
         UUID id = UUID.fromString(request.requestParam("id"));
         return request.moduleStorageAccess().updateEntity(id, transformation)
                 .onSuccess(result-> {
                     if (result.rowCount()==1) {
+                    if (transformation.containsListOfSteps()) {
+                        new TransformationStep().deleteStepsOfATransformation(request, transformation.record.id())
+                            .compose(ignore ->
+                                request.moduleStorageAccess()
+                                    .storeEntities(new TransformationStep(), transformation.getListOfTransformationSteps())
+                            ).onSuccess(res -> responseText(request.routingContext(), 204).end());
+                    }  else {
                         responseText(request.routingContext(), 204).end();
+                    }
                     } else {
                         responseText(request.routingContext(), 404).end("Not found");
                     }

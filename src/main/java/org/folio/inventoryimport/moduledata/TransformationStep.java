@@ -187,7 +187,12 @@ public class TransformationStep extends Entity {
                 + "   AND position > " + updatingTsa.positionOfTheExistingStep
         ).mapEmpty();
     }
-
+    public Future<Void> deleteStepsOfATransformation(ServiceRequest request, UUID transformationId) {
+        TenantPgPool pool = request.moduleStorageAccess().getTenantPool();
+        return executeSqlStatements(pool,
+            "DELETE FROM " + this.table(pool.getSchema())
+                + " WHERE transformation_id = '" + transformationId.toString() + "'").mapEmpty();
+    }
     @Override
     public Future<Void> createDatabase(TenantPgPool pool) {
         return executeSqlStatements(pool,

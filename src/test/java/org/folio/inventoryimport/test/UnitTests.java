@@ -404,7 +404,6 @@ public class UnitTests {
                 .put("script", Files.XSLT_COPY_XML_DOC);
 
         postJsonObject(PATH_STEPS, step);
-        getRecordById(PATH_STEPS, STEP_ID).extract().response().getBody().prettyPrint();
         assertThat(getRecords(PATH_STEPS).extract().path("totalRecords"), is(1));
         await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(Files.XSLT_COPY_XML_DOC));
         putJsonObject(PATH_STEPS + "/" + STEP_ID, step, 204);
@@ -440,7 +439,6 @@ public class UnitTests {
                 .put("enabled", true)
                 .put("script", XSLT_EMPTY);
         postJsonObject(PATH_STEPS, step);
-        getRecordById(PATH_STEPS, STEP_ID).extract().response().getBody().prettyPrint();
         await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(XSLT_EMPTY));
         putXml(PATH_STEPS + "/" + STEP_ID + "/script", Files.XSLT_COPY_XML_DOC);
         await().until(() -> getRecords(PATH_STEPS + "/" + STEP_ID + "/script").extract().asPrettyString(), equalTo(Files.XSLT_COPY_XML_DOC));
@@ -509,6 +507,106 @@ public class UnitTests {
 
         getRecords(PATH_TSAS+"?query=transformationId="+ JSON_TRANSFORMATION_CONFIG.getString("id"))
                 .body("totalRecords" , is(1));
+    }
+
+    public static final String STEP_ID_2 = "88aa7d90-608c-4fbb-bc1e-f8fa93a7538b";
+    public static final String STEP_ID_3 = "7875d0fb-e66a-454a-bbf1-30fe66dc2b3a";
+    public static final String STEP_ID_4 = "15a6c537-d1f8-4af3-bf75-b250461d1aea";
+
+    @Test
+    public void canCreateEntirePipeline () {
+        JsonObject step = new JsonObject();
+        step.put("id", STEP_ID)
+            .put("name", "test step 1")
+            .put("enabled", true)
+            .put("script", Files.XSLT_COPY_XML_DOC);
+        postJsonObject(PATH_STEPS, step);
+        JsonObject step2 = new JsonObject();
+        step2.put("id", STEP_ID_2)
+            .put("name", "test step 2")
+            .put("enabled", true)
+            .put("script", Files.XSLT_COPY_XML_DOC);
+        postJsonObject(PATH_STEPS, step2);
+        JsonObject transformation = JSON_TRANSFORMATION_CONFIG.copy();
+        JsonArray steps = new JsonArray();
+        steps.add(new JsonObject().put("id", STEP_ID));
+        steps.add(new JsonObject().put("id", STEP_ID_2));
+        transformation.put("steps", steps);
+        postJsonObject(PATH_TRANSFORMATIONS,transformation);
+        getRecords(PATH_TSAS).body("totalRecords", is(2));
+    }
+
+    @Test
+    public void canUpdateEntirePipeline() {
+        postJsonObject(PATH_STEPS,
+            new JsonObject().put("id", STEP_ID)
+                .put("name", "test step 1")
+                .put("enabled", true)
+                .put("script", Files.XSLT_COPY_XML_DOC));
+        postJsonObject(PATH_STEPS,
+            new JsonObject().put("id", STEP_ID_2)
+                .put("name", "test step 2")
+                .put("enabled", true)
+                .put("script", Files.XSLT_COPY_XML_DOC));
+        postJsonObject(PATH_STEPS,
+            new JsonObject().put("id", STEP_ID_3)
+                .put("name", "test step 3")
+                .put("enabled", true)
+                .put("script", Files.XSLT_COPY_XML_DOC));
+        JsonObject transformationV1 = JSON_TRANSFORMATION_CONFIG.copy().put("steps",
+            new JsonArray()
+                .add(new JsonObject().put("id", STEP_ID))
+                .add(new JsonObject().put("id", STEP_ID_2))
+                .add(new JsonObject().put("id", STEP_ID_3)));
+        postJsonObject(PATH_TRANSFORMATIONS, transformationV1);
+        getRecords(PATH_TSAS).body("totalRecords", is(3));
+        postJsonObject(PATH_STEPS,
+            new JsonObject().put("id", STEP_ID_4)
+                .put("name", "test step 4")
+                .put("enabled", true)
+                .put("script", Files.XSLT_COPY_XML_DOC));
+
+        JsonObject transformationV2 = JSON_TRANSFORMATION_CONFIG.copy().put("steps",
+            new JsonArray()
+                .add(new JsonObject().put("id", STEP_ID_4)));
+        putJsonObject(PATH_TRANSFORMATIONS + "/" + transformationV2.getString("id"), transformationV2, 204);
+        getRecords(PATH_TSAS).body("totalRecords", is(1));
+        JsonObject tsas = new JsonObject(getRecords(PATH_TSAS).extract().body().asString());
+        assertThat("First step is now 'test step 4'",
+            tsas.getJsonArray("transformationStepAssociations").getJsonObject(0).getString("stepId"), is(STEP_ID_4));
+
+    }
+
+    @Test
+    public void willNotTouchPipelineIfNoStepsProvidedWithTransformationPut () {
+        postJsonObject(PATH_STEPS,
+            new JsonObject().put("id", STEP_ID)
+                .put("name", "test step 1")
+                .put("enabled", true)
+                .put("script", Files.XSLT_COPY_XML_DOC));
+        postJsonObject(PATH_STEPS,
+            new JsonObject().put("id", STEP_ID_2)
+                .put("name", "test step 2")
+                .put("enabled", true)
+                .put("script", Files.XSLT_COPY_XML_DOC));
+        postJsonObject(PATH_STEPS,
+            new JsonObject().put("id", STEP_ID_3)
+                .put("name", "test step 3")
+                .put("enabled", true)
+                .put("script", Files.XSLT_COPY_XML_DOC));
+        JsonObject transformationV1 = JSON_TRANSFORMATION_CONFIG.copy().put("steps",
+            new JsonArray()
+                .add(new JsonObject().put("id", STEP_ID))
+                .add(new JsonObject().put("id", STEP_ID_2))
+                .add(new JsonObject().put("id", STEP_ID_3)));
+        postJsonObject(PATH_TRANSFORMATIONS, transformationV1);
+        getRecords(PATH_TSAS).body("totalRecords", is(3));
+
+        putJsonObject(PATH_TRANSFORMATIONS + "/" + JSON_TRANSFORMATION_CONFIG.getString("id"),
+            JSON_TRANSFORMATION_CONFIG.put("name", "new name"), 204);
+        getRecordById(PATH_TRANSFORMATIONS,
+            JSON_TRANSFORMATION_CONFIG.getString("id")).body("name", is("new name"));
+        getRecords(PATH_TSAS).body("totalRecords", is(3));
     }
 
     @Test
