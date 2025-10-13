@@ -656,8 +656,8 @@ public class UnitTests {
                 .put("jobLabel", importConfigName)
                 .put("line", "log line 2"));
         JsonObject request = new JsonObject().put("logLines", logLines);
-        postJsonObject(PATH_IMPORT_JOBS+"/"+importJobId+"/log", request);
-        getRecords(PATH_IMPORT_JOBS + "/" + importJobId + "/log")
+        postJsonObject(PATH_IMPORT_JOBS+"/log", request);
+        getRecords(PATH_IMPORT_JOBS + "/log")
                 .body("totalRecords", is(2));
     }
 
@@ -692,7 +692,7 @@ public class UnitTests {
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
-        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/log"), is(4));
     }
 
     @Test
@@ -711,12 +711,12 @@ public class UnitTests {
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
-        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/log"), is(4));
         assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(1));
         // Delete
         postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
                 Files.createCollectionOfOneDeleteRecord(HRID));
-        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(8));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/log"), is(8));
         assertThat("Instances in storage", fakeFolioApis.upsertStorage.internalGetInstances().size(), is(0));
     }
 
@@ -734,7 +734,7 @@ public class UnitTests {
         postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
                 Files.createCollectionOfInventoryXmlRecords(1,100, "200", 1));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
-        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), greaterThan(1));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/log"), greaterThan(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
@@ -797,7 +797,7 @@ public class UnitTests {
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
-        getRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log").extract().response().prettyPrint();
+        getRecords(PATH_IMPORT_JOBS + "/log").extract().response().prettyPrint();
     }
 
     @Test
@@ -812,8 +812,7 @@ public class UnitTests {
                 .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
 
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
-        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), greaterThan(1));
-        getRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log").extract().response().prettyPrint();
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/log"), greaterThan(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
@@ -834,7 +833,7 @@ public class UnitTests {
 
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
-        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), greaterThan(1));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/log"), greaterThan(1));
 
         given()
                 .port(Service.PORT_OKAPI)
@@ -909,7 +908,7 @@ public class UnitTests {
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
         String started = getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("started");
         await().until(() -> getRecordById(PATH_IMPORT_JOBS, jobId).extract().path("finished"), greaterThan(started));
-        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/" + importConfigId + "/log"), is(4));
+        await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/log"), is(4));
         await().until(() -> getTotalRecords(PATH_IMPORT_JOBS + "/" + jobId + "/failed-records"), is(1));
     }
 

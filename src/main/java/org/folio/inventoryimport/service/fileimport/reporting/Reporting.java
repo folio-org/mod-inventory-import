@@ -168,6 +168,8 @@ public class Reporting {
         lines.add(new LogLine(
                 UUID.randomUUID(),
                 fileProcessor.getImportJob().record.id(),
+                fileProcessor.getImportJob().record.importConfigId(),
+                fileProcessor.getImportJob().record.importConfigName(),
                 SettableClock.getLocalDateTime().toString(),
                 fileProcessor.getImportJob().record.importConfigName(),
                 statement));
