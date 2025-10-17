@@ -137,6 +137,9 @@ public class LogLine extends Entity {
     public JsonObject asJson() {
         JsonObject json = new JsonObject();
         json.put(jsonPropertyName(ID), record.id);
+        json.put(jsonPropertyName(IMPORT_JOB_ID), record.importJobId);
+        json.put(jsonPropertyName(VIEW_IMPORT_CONFIG_ID), record.importConfigId);
+        json.put(jsonPropertyName(VIEW_IMPORT_CONFIG_NAME), record.importConfigName);
         json.put(jsonPropertyName(TIME_STAMP), record.timeStamp);
         json.put(jsonPropertyName(JOB_LABEL), record.jobLabel);
         json.put(jsonPropertyName(LOG_STATEMENT), record.line);
