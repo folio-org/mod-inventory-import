@@ -353,7 +353,55 @@ public class ImportService implements RouterCreator, TenantInitHooks {
     }
 
     private Future<Void> getLogStatements(ServiceRequest request) {
-        return getEntities(request, new LogLine());
+        ModuleStorageAccess db = request.moduleStorageAccess();
+        SqlQuery queryFromCql = new LogLine().makeSqlFromCqlQuery(
+                request, db.schemaDotTable(Tables.job_log_view))
+            .withDefaultLimit("100");
+        String from = request.queryParam("from");
+        String until = request.queryParam("until");
+
+        String timeRange = null;
+        if (from != null && until != null) {
+            timeRange = " (time_stamp >= '" + from
+                + "'  AND time_stamp <= '" + until + "') ";
+        } else if (from != null) {
+            timeRange = " time_stamp >= '" + from + "' ";
+        } else if (until != null) {
+            timeRange = " time_stamp <= '" + until + "' ";
+        }
+
+        if (timeRange != null) {
+            queryFromCql.withAdditionalWhereClause(timeRange);
+        }
+
+        return db.getEntities(queryFromCql.getQueryWithLimits(), new LogLine()).onComplete(
+            logStatements -> {
+                boolean asText = request.getHeader("Accept").equalsIgnoreCase("text/plain");
+                if (logStatements.succeeded()) {
+                    JsonObject responseJson = new JsonObject();
+                    final StringBuilder logAsText = new StringBuilder();
+                    JsonArray logLines = new JsonArray();
+                    responseJson.put("logLines", logLines);
+                    for (Entity logLine : logStatements.result()) {
+                        if (asText) {
+                            logAsText.append(logLine.toString()).append(System.lineSeparator());
+                        } else {
+                            logLines.add(logLine.asJson());
+                        }
+                    }
+                    if (asText) {
+                        responseText(request.routingContext, 200).end(logAsText.toString());
+                    } else {
+                        db.getCount(queryFromCql.getCountingSql()).onComplete(
+                            count -> {
+                                responseJson.put("totalRecords", count.result());
+                                responseJson(request.routingContext(), 200).end(responseJson.encodePrettily());
+                            }
+                        );
+                    }
+                }
+            }
+        ).mapEmpty();
     }
 
     private Future<Void> getFailedRecords(ServiceRequest request) {

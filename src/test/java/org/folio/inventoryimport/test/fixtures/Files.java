@@ -58,7 +58,7 @@ public class Files {
       ArrayList<String> sourceFiles = new ArrayList<>();
       for (int files = 0; files < numberOfFiles; files++) {
           int startRecord = files*recordsPerFile+1;
-          sourceFiles.add(createCollectionOfInventoryXmlRecords(startRecord, startRecord+recordsPerFile-1, fakedResponseStatus));
+          sourceFiles.add(createCollectionOfInventoryXmlRecordsWithDeletes(startRecord, startRecord+recordsPerFile-1, fakedResponseStatus));
       }
       return sourceFiles;
   }
@@ -72,7 +72,7 @@ public class Files {
    * @param deletesPositions Insert delete records at given positions in batch
    * @return a number of XML records (total records = lastRecord - firstRecord)
    */
-  public static String createCollectionOfInventoryXmlRecords(int firstRecord, int lastRecord, String fakedResponseStatus, int ... deletesPositions)  {
+  public static String createCollectionOfInventoryXmlRecordsWithDeletes(int firstRecord, int lastRecord, String fakedResponseStatus, int ... deletesPositions)  {
       CollectionOfXmlRecords collection = new CollectionOfXmlRecords();
       for (int i=firstRecord; i<=lastRecord; i++) {
           if (arrayHasInt(deletesPositions, i)) {

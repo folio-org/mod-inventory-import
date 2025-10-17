@@ -48,11 +48,11 @@
           "permissionsRequired": ["inventory-import.import-jobs.item.delete"]
         },{
           "methods": ["GET"],
-          "pathPattern": "/inventory-import/import-jobs/{id}/log",
+          "pathPattern": "/inventory-import/import-jobs/log",
           "permissionsRequired": ["inventory-import.import-jobs.log.get"]
         },{
           "methods": ["POST"],
-          "pathPattern": "/inventory-import/import-jobs/{id}/log",
+          "pathPattern": "/inventory-import/import-jobs/log",
           "permissionsRequired": ["inventory-import.import-jobs.log.post"]
         },{
           "methods": ["GET"],
