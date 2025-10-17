@@ -57,6 +57,7 @@ public class UnitTests {
     private static FakeFolioApis fakeFolioApis;
     public static final Header CONTENT_TYPE_XML = new Header("Content-Type", "application/xml");
     public static final Header CONTENT_TYPE_JSON = new Header("Content-Type", "application/json");
+    public static final Header ACCEPT_TEXT = new Header("Accept", "text/plain");
     public static final String STEP_ID = "66d5ef34-ee3d-434c-a07d-80dbfdb31b6e";
 
     @ClassRule
@@ -636,7 +637,7 @@ public class UnitTests {
     }
 
     @Test
-    public void canPostLogLines() {
+    public void canPostLogLinesAndGetAsJsonOrText() {
         postJsonObject(PATH_TRANSFORMATIONS, JSON_TRANSFORMATION_CONFIG);
         postJsonObject(PATH_IMPORT_CONFIGS, JSON_IMPORT_CONFIG);
         postJsonObject(PATH_IMPORT_JOBS, JSON_IMPORT_JOB);
@@ -659,6 +660,16 @@ public class UnitTests {
         postJsonObject(PATH_IMPORT_JOBS+"/log", request);
         getRecords(PATH_IMPORT_JOBS + "/log")
                 .body("totalRecords", is(2));
+        String logStatements = given()
+            .header(ACCEPT_TEXT)
+            .header(OKAPI_TENANT)
+            .get("inventory-import/import-jobs/log?limit=10").body().asString();
+        assertThat("Number of log lines ", countLines(logStatements), is(2));
+    }
+
+    private int countLines(String str) {
+        String[] lines = str.split("\r\n|\r|\n");
+        return lines.length;
     }
 
     @Test
@@ -732,7 +743,7 @@ public class UnitTests {
                 .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
         // Delete in first position
         postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
-                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 1));
+                Files.createCollectionOfInventoryXmlRecordsWithDeletes(1,100, "200", 1));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(1));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS + "/log"), greaterThan(1));
         String jobId = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[0].id");
@@ -745,7 +756,7 @@ public class UnitTests {
                 .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
         // Two consecutive deletes
         postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
-                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 49, 50));
+                Files.createCollectionOfInventoryXmlRecordsWithDeletes(1,100, "200", 49, 50));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(2));
         String jobId2 = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[1].id");
         String started2 = getRecordById(PATH_IMPORT_JOBS, jobId2).extract().path("started");
@@ -757,7 +768,7 @@ public class UnitTests {
                 .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
         // Two non-consecutive deletes
         postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
-                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 25, 75));
+                Files.createCollectionOfInventoryXmlRecordsWithDeletes(1,100, "200", 25, 75));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(3));
         String jobId3 = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[2].id");
         String started3 = getRecordById(PATH_IMPORT_JOBS, jobId3).extract().path("started");
@@ -769,9 +780,9 @@ public class UnitTests {
                 .forEach(xml -> postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import", xml));
         // Two consecutive deletes at end of first file, followed by a second file of upserts
         postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
-                Files.createCollectionOfInventoryXmlRecords(1,100, "200", 99, 100));
+                Files.createCollectionOfInventoryXmlRecordsWithDeletes(1,100, "200", 99, 100));
         postSourceXml(BASE_PATH_IMPORT_XML + "/" + importConfigId + "/import",
-                Files.createCollectionOfInventoryXmlRecords(101,200, "200", 99, 100));
+                Files.createCollectionOfInventoryXmlRecordsWithDeletes(101,200, "200", 99, 100));
         await().until(() ->  getTotalRecords(PATH_IMPORT_JOBS), is(4));
         String jobId4 = getRecords(PATH_IMPORT_JOBS).extract().path("importJobs[3].id");
         String started4 = getRecordById(PATH_IMPORT_JOBS, jobId4).extract().path("started");

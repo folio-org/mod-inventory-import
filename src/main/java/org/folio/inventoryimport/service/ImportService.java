@@ -375,21 +375,30 @@ public class ImportService implements RouterCreator, TenantInitHooks {
         }
 
         return db.getEntities(queryFromCql.getQueryWithLimits(), new LogLine()).onComplete(
-            failuresList -> {
-                if (failuresList.succeeded()) {
+            logStatements -> {
+                boolean asText = request.getHeader("Accept").equalsIgnoreCase("text/plain");
+                if (logStatements.succeeded()) {
                     JsonObject responseJson = new JsonObject();
+                    final StringBuilder logAsText = new StringBuilder();
                     JsonArray logLines = new JsonArray();
                     responseJson.put("logLines", logLines);
-                    List<Entity> failures = failuresList.result();
-                    for (Entity failure : failures) {
-                        logLines.add(failure.asJson());
-                    }
-                    db.getCount(queryFromCql.getCountingSql()).onComplete(
-                        count -> {
-                            responseJson.put("totalRecords", count.result());
-                            responseJson(request.routingContext(), 200).end(responseJson.encodePrettily());
+                    for (Entity logLine : logStatements.result()) {
+                        if (asText) {
+                            logAsText.append(logLine.toString()).append(System.lineSeparator());
+                        } else {
+                            logLines.add(logLine.asJson());
                         }
-                    );
+                    }
+                    if (asText) {
+                        responseText(request.routingContext, 200).end(logAsText.toString());
+                    } else {
+                        db.getCount(queryFromCql.getCountingSql()).onComplete(
+                            count -> {
+                                responseJson.put("totalRecords", count.result());
+                                responseJson(request.routingContext(), 200).end(responseJson.encodePrettily());
+                            }
+                        );
+                    }
                 }
             }
         ).mapEmpty();
